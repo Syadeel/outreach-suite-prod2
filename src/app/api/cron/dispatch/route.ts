@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
         campaign:campaigns(status)
       `)
       .eq('status', 'pending')
-      .lte('next_send_time', now);
+      .lte('next_send_time', now)
+      .limit(5);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
