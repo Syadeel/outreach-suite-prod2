@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     // Simple secret token check to prevent unauthorized public trigger
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
-    const cronSecret = process.env.SUPABASE_SERVICE_ROLE_KEY; // reuse service key or set custom CRON_SECRET
+    const cronSecret = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (token !== cronSecret && process.env.NODE_ENV === 'production') {
       return NextResponse.json({ error: 'Unauthorized cron access' }, { status: 401 });
