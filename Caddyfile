@@ -1,0 +1,11 @@
+# Outreach Suite SSL and Domains Configuration
+
+# 1. Main Dashboard and Personalized Landing Pages
+{$DOMAIN_NAME} {
+    reverse_proxy outreach-app:3000
+}
+
+# 2. n8n Automation Cron Workflow Console
+n8n.{$DOMAIN_NAME} {
+    reverse_proxy n8n:5678
+}

@@ -3,31 +3,156 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  /* Premium Dark Theme Variables */
+  --bg-color: #020617; /* slate-950 */
+  --text-color: #f8fafc; /* slate-50 */
+  --text-muted: #94a3b8; /* slate-400 */
+  --panel-bg: rgba(15, 23, 42, 0.45); /* slate-900/45 */
+  --panel-border: rgba(30, 41, 59, 0.5); /* slate-800/50 */
+  --card-bg: rgba(15, 23, 42, 0.6);
+  --card-border: rgba(30, 41, 59, 0.6);
+  --input-bg: rgba(2, 6, 23, 0.6);
+  --input-border: rgba(30, 41, 59, 0.6);
+  --input-text: #f8fafc;
+  --bg-gradient: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                 radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+                 radial-gradient(at 50% 0%, rgba(14, 165, 233, 0.1) 0px, transparent 50%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+@layer base {
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+/* Custom Scrollbar for Premium Feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.2);
 }
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+/* Glassmorphism Utility Classes */
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--panel-border);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.glass-input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+  transition: all 0.2s ease-in-out;
+}
+
+.glass-input:focus {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+  outline: none;
+}
+
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--card-border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(30, 41, 59, 0.7);
+  transform: translateY(-2px);
+}
+
+/* Subtle Pulsing for Recording Indicators */
+@keyframes recordPulse {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+.record-pulse {
+  animation: recordPulse 2s infinite ease-in-out;
+}
+
+/* 
+ * Premium Light Theme Overrides 
+ * Toggled via .light class on body
+ */
+body.light {
+  --bg-color: #f8fafc; /* slate-50 */
+  --text-color: #0f172a; /* slate-900 */
+  --text-muted: #475569; /* slate-600 */
+  --panel-bg: rgba(255, 255, 255, 0.7);
+  --panel-border: rgba(15, 23, 42, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --card-border: rgba(15, 23, 42, 0.08);
+  --input-bg: rgba(248, 250, 252, 0.8);
+  --input-border: rgba(15, 23, 42, 0.15);
+  --input-text: #0f172a;
+  --bg-gradient: radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+                 radial-gradient(at 100% 100%, rgba(20, 184, 166, 0.05) 0px, transparent 50%),
+                 radial-gradient(at 50% 0%, rgba(14, 165, 233, 0.04) 0px, transparent 50%);
+}
+
+body.light .text-white {
+  color: #0f172a !important; /* Make standard white text dark for readability */
+}
+
+/* EXCEPTIONS: Keep buttons explicitly white text */
+body.light button.text-white,
+body.light button .text-white,
+body.light .bg-emerald-500,
+body.light .bg-emerald-600,
+body.light .bg-emerald-500 *,
+body.light .bg-emerald-600 *,
+body.light .bg-indigo-500,
+body.light .bg-indigo-600,
+body.light .bg-indigo-500 *,
+body.light .bg-indigo-600 * {
+  color: #ffffff !important;
+}
+
+body.light .text-slate-100 { color: #0f172a !important; }
+body.light .text-slate-200 { color: #1e293b !important; }
+body.light .text-slate-300 { color: #334155 !important; }
+body.light .text-slate-400 { color: #475569 !important; }
+body.light .text-slate-500 { color: #64748b !important; }
+
+body.light .bg-slate-900 { background-color: #f1f5f9 !important; }
+body.light .bg-slate-950 { background-color: #ffffff !important; }
+body.light .bg-slate-950\/45 { background-color: rgba(255, 255, 255, 0.6) !important; }
+
+body.light .border-slate-800 { border-color: rgba(15, 23, 42, 0.08) !important; }
+body.light .border-slate-800\/60 { border-color: rgba(15, 23, 42, 0.06) !important; }
+body.light .border-slate-850 { border-color: rgba(15, 23, 42, 0.08) !important; }
+
+body.light .divide-slate-800\/40 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(15, 23, 42, 0.06) !important; }
+body.light .hover\:bg-slate-800\/40:hover { background-color: rgba(15, 23, 42, 0.05) !important; }
+body.light .bg-slate-900\/25 { background-color: rgba(15, 23, 42, 0.02) !important; }
+body.light .hover\:bg-slate-900\/30:hover { background-color: rgba(15, 23, 42, 0.04) !important; }
+
+body.light .bg-indigo-950\/15 { background-color: rgba(16, 185, 129, 0.05) !important; }
+body.light .text-indigo-300 { color: #059669 !important; }
+body.light .bg-indigo-600\/25 { background-color: rgba(16, 185, 129, 0.1) !important; }
+body.light .border-indigo-500\/25 { border-color: rgba(16, 185, 129, 0.2) !important; }
+body.light .bg-slate-950\/80 { background-color: rgba(255, 255, 255, 0.9) !important; }

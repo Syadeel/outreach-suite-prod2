@@ -1,113 +1,89 @@
-import Image from "next/image";
+'use client';
 
+import React, { useState, useEffect } from 'react';
+import Sidebar from '../components/Sidebar';
+import CampaignsTab from '../components/CampaignsTab';
+import LeadsTab from '../components/LeadsTab';
+import VideoTab from '../components/VideoTab';
+import InboxTab from '../components/InboxTab';
+import AnalyticsTab from '../components/AnalyticsTab';
+import SettingsTab from '../components/SettingsTab';
+import { Sparkles } from 'lucide-react';
 export default function Home() {
+  const [activeTab, setActiveTab] = useState('campaigns');
+
+
+  useEffect(() => {
+    // Check if redirecting back from a successful Google OAuth flow
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('auth') === 'success') {
+      setActiveTab('settings');
+      
+      // Trigger confetti celebration dynamically on the client side
+      import('canvas-confetti').then((module) => {
+        const confetti = module.default;
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.8 },
+          colors: ['#10b981', '#14b8a6', '#f59e0b'] // Premium emerald/teal/gold confetti
+        });
+      }).catch(err => console.error('Failed to load confetti:', err));
+
+      // Clear the query parameter
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'campaigns':
+        return <CampaignsTab />;
+      case 'leads':
+        return <LeadsTab />;
+      case 'video':
+        return <VideoTab />;
+      case 'inbox':
+        return <InboxTab />;
+      case 'analytics':
+        return <AnalyticsTab />;
+      case 'settings':
+        return <SettingsTab />;
+      default:
+        return <CampaignsTab />;
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className="flex min-h-screen">
+      {/* Sidebar Navigation */}
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Main Dashboard Container */}
+      <main className="flex-1 p-8 overflow-y-auto max-h-screen relative">
+        
+        {/* Subtle decorative background gradient circles */}
+        <div className="absolute top-10 right-20 w-72 h-72 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute bottom-20 left-10 w-96 h-96 bg-pink-500/5 rounded-full blur-[100px] pointer-events-none" />
+
+        {/* Tab Wrapper */}
+        <div className="max-w-6xl mx-auto space-y-6 relative z-10">
+          
+          {/* Quick Notice/Banner */}
+          <div className="glass-panel px-4 py-3 rounded-2xl flex items-center justify-between border-slate-800/40 bg-indigo-950/15">
+            <div className="flex items-center gap-2 text-xs text-indigo-300 font-semibold">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span>Workspace loaded. Automated sequencing is active in the background.</span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">v1.0.0 Stable</span>
+          </div>
+
+          {/* Active Pane */}
+          <div className="animate-fadeIn">
+            {renderActiveTab()}
+          </div>
         </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

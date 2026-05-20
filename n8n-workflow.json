@@ -1,0 +1,148 @@
+{
+  "name": "Outreach Suite Cron Manager",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": "interval",
+        "interval": 5,
+        "unit": "minutes"
+      },
+      "id": "27d6d531-15fe-4e5c-9c71-33cb17f631fb",
+      "name": "Every 5 Minutes (Send Queue)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "rule": "interval",
+        "interval": 15,
+        "unit": "minutes"
+      },
+      "id": "e0e290f8-c2fe-4be1-b3b4-4ea059df1f07",
+      "name": "Every 15 Minutes (Poll Replies)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "rule": "time",
+        "time": "00:00"
+      },
+      "id": "ffae492a-fa5c-443b-bd9d-e4fb3abff5b9",
+      "name": "Daily at Midnight (Reset Limits)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        650
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://outreach-app:3000/api/cron/dispatch",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "token",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              }
+            ]
+          }
+        }
+      },
+      "id": "3be9db7d-a1df-4e2b-ac59-b1ff80e5b7cf",
+      "name": "HTTP: Trigger Dispatch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        550,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://outreach-app:3000/api/poll-replies",
+        "options": {}
+      },
+      "id": "b18b456e-826e-49b8-a73c-bf586bfbb57b",
+      "name": "HTTP: Sync Replies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        550,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://outreach-app:3000/api/cron/reset-limits",
+        "options": {
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "token",
+                "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              }
+            ]
+          }
+        }
+      },
+      "id": "dcfdfc63-b8d9-43c9-948f-3eb4ca6a7ce0",
+      "name": "HTTP: Reset Daily Limits",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        550,
+        650
+      ]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes (Send Queue)": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Trigger Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 15 Minutes (Poll Replies)": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Sync Replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily at Midnight (Reset Limits)": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Reset Daily Limits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

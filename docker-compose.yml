@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # 1. Outreach Next.js Dashboard Application
+  outreach-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: outreach-app
+    restart: always
+    env_file:
+      - .env.local
+    ports:
+      - "3000:3000"
+    networks:
+      - outreach-network
+
+  # 2. n8n Background Cron Automation Engine
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: outreach-n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=n8n.${DOMAIN_NAME}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.${DOMAIN_NAME}/
+      - GENERIC_TIMEZONE=UTC
+      - N8N_METRICS=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - outreach-network
+
+  # 3. Caddy Reverse Proxy (Auto SSL Management)
+  caddy:
+    image: caddy:2-alpine
+    container_name: outreach-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - outreach-app
+      - n8n
+    networks:
+      - outreach-network
+
+networks:
+  outreach-network:
+    driver: bridge
+
+volumes:
+  n8n_data:
+  caddy_data:
+  caddy_config:
