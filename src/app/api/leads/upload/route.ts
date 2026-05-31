@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import csvParse from 'csv-parse/lib/sync';
-import fetch from 'node-fetch';
+import { parse } from 'csv-parse/sync';
 import path from 'path';
 
 /**
@@ -32,7 +31,7 @@ export async function POST(req: NextRequest) {
     // Decode CSV
     const csvBuffer = Buffer.from(csvBase64, 'base64');
     const csvString = csvBuffer.toString('utf-8');
-    const records = csvParse(csvString, {
+    const records = parse(csvString, {
       columns: true,
       skip_empty_lines: true,
       trim: true,
@@ -71,7 +70,7 @@ export async function POST(req: NextRequest) {
       const script = `Hi ${first_name}, I wanted to reach out about ${company}.`;
       try {
         // Request video generation – VoiceKit lives on the same Docker network under the name `voicekit`
-        const vkRes = await fetch('${process.env.VOICEKIT_URL || 'http://localhost:5000'}/api/generate', {
+        const vkRes = await fetch(`${process.env.VOICEKIT_URL || 'http://localhost:5000'}/api/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
