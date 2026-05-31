@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
         campaign:campaigns(status)
       `)
       .eq('status', 'pending')
+      .not('next_send_time', 'is', null)
       .lte('next_send_time', now)
       .limit(5);
 

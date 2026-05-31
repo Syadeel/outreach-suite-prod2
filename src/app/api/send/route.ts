@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail } from '@/lib/smtp';
-import { getEmailGifUrl, getPersonalizedThumbnailUrl } from '@/lib/cloudinary';
+import { getEmailGifUrl, getPersonalizedEmailGifUrl, getPersonalizedThumbnailUrl } from '@/lib/cloudinary';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +29,21 @@ export async function POST(req: NextRequest) {
 
     const { campaign, lead } = campaignLead;
 
+    // Bounce & Invalid Domain Protection: skip sending if lead is already bounced or marked invalid
+    const enrichmentStatus = lead.custom_fields?.enrichment_status;
+    const outreachStatus = lead.custom_fields?.outreach_status || 'good';
+    if (lead.stage === 'bounce' || enrichmentStatus === 'invalid' || enrichmentStatus === 'Bad' || outreachStatus.startsWith('invalid')) {
+      await supabaseAdmin
+        .from('campaign_leads')
+        .update({ status: 'bounce', next_send_time: null })
+        .eq('id', campaignLeadId);
+      
+      return NextResponse.json({
+        status: 'skipped',
+        message: `Skipped sending because lead is flagged as invalid: stage=${lead.stage}, enrichmentStatus=${enrichmentStatus}, status=${outreachStatus}`
+      });
+    }
+
     // Verify campaign is active and step index is valid
     const steps = campaign.steps as any[];
     const currentStep = steps[campaignLead.current_step_index];
@@ -54,7 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Pick first available inbox that hasn't hit its daily limit
-    const selectedInbox = activeInboxes.find(ib => ib.sent_today < ib.daily_limit);
+    const selectedInbox = activeInboxes.find((ib: any) => ib.sent_today < ib.daily_limit);
     if (!selectedInbox) {
       return NextResponse.json({ error: 'All active inboxes have hit their daily sending limit' }, { status: 503 });
     }
@@ -86,26 +101,50 @@ export async function POST(req: NextRequest) {
 
       if (videoRecord) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        const landingPageUrl = `${appUrl}/landing/${videoRecord.id}?leadId=${lead.id}`;
+        let landingPageUrl = `${appUrl}/landing/${videoRecord.id}?leadId=${lead.id}`;
+        if (currentStep.lpTemplateId) {
+          landingPageUrl += `&lpTemplateId=${currentStep.lpTemplateId}`;
+        }
         
-        // Generate personalized thumbnail & GIF URLs
-        const gifUrl = getEmailGifUrl(videoRecord.video_url);
+        // Generate GIF — direct Cloudinary URL (no redirect chain, works in Gmail)
+        const gifUrl = videoRecord.video_url
+          .replace('/video/upload/', '/video/upload/w_400,c_scale,f_gif,q_auto,du_3,e_loop/')
+          .replace(/\.[^/.]+$/, '.gif');
         const thumbUrl = getPersonalizedThumbnailUrl(videoRecord.video_url, lead.first_name || '');
 
-        // Create the HTML block for GIF embedding with play button overlay feel
+        // Create the HTML block — Sendr.ai style: GIF preview with gradient overlay for Gmail
         const videoHtmlBlock = `
-          <div style="margin: 20px 0; font-family: sans-serif;">
-            <a href="${landingPageUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-              <img src="${gifUrl}" alt="Personalized Video for you" width="320" style="border-radius: 8px; border: 1px solid #e2e8f0; display: block;" />
-              <div style="margin-top: 8px; color: #4F46E5; font-size: 14px; font-weight: bold; text-align: center;">
-                ▶ Click to watch personalized video (3:00)
-              </div>
-            </a>
-          </div>
-        `;
+          <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="margin:24px 0;">
+            <tr>
+              <td align="center">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto;">
+                  <tr>
+                    <td style="border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+                      <a href="${landingPageUrl}" target="_blank" style="text-decoration:none;display:block;">
+                        <img src="${gifUrl}" alt="Personalized video for ${lead.first_name || 'you'}" width="320" style="display:block;border:0;outline:none;max-width:100%;" />
+                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="background:linear-gradient(180deg,transparent,rgba(0,0,0,0.8));">
+                          <tr>
+                            <td align="center" style="padding:12px 16px;">
+                              <div style="font-size:28px;line-height:1.2;">▶</div>
+                              <div style="font-size:14px;font-weight:700;color:#ffffff;font-family:Helvetica,Arial,sans-serif;">Watch personalized video →</div>
+                              <div style="font-size:12px;color:rgba(255,255,255,0.7);font-family:Helvetica,Arial,sans-serif;margin-top:2px;">A walkthrough for ${lead.first_name || 'you'} @ ${lead.company || 'your company'}</div>
+                            </td>
+                          </tr>
+                        </table>
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>`;
         
         // Append or inject video html block
-        emailBody = emailBody + videoHtmlBlock;
+        if (emailBody.includes('{{video_gif}}')) {
+          emailBody = emailBody.replace('{{video_gif}}', videoHtmlBlock);
+        } else {
+          emailBody = emailBody + videoHtmlBlock;
+        }
       }
     }
 

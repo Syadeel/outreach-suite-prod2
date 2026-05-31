@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getUploadSignature } from '@/lib/cloudinary';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const signatureData = getUploadSignature();

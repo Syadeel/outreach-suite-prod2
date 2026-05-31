@@ -27,7 +27,7 @@ export default function Error({
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-white">Application Runtime Error</h2>
+          <h2 className="text-xl font-bold text-heading">Application Runtime Error</h2>
           <p className="text-slate-400 text-xs leading-relaxed">
             A client-side execution crash occurred during component rendering. The details are printed below:
           </p>

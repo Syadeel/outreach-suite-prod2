@@ -127,7 +127,7 @@ export default function InboxTab() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold tracking-tight text-heading flex items-center gap-2">
             <Inbox className="w-7 h-7 text-indigo-400" />
             Unified Inbox
           </h2>
@@ -174,7 +174,7 @@ export default function InboxTab() {
                     }`}
                   >
                     <div className="flex justify-between items-start">
-                      <h4 className="font-semibold text-white text-sm">{lead.first_name} {lead.last_name || ''}</h4>
+                      <h4 className="font-semibold text-heading text-sm">{lead.first_name} {lead.last_name || ''}</h4>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold uppercase">
                         {lead.stage}
                       </span>
@@ -195,7 +195,7 @@ export default function InboxTab() {
               {/* Top Banner */}
               <div className="p-4 border-b border-slate-800 bg-slate-900/25 flex flex-wrap justify-between items-center gap-3">
                 <div>
-                  <h3 className="font-bold text-white text-md">{selectedLead.first_name} {selectedLead.last_name || ''}</h3>
+                  <h3 className="font-bold text-heading text-md">{selectedLead.first_name} {selectedLead.last_name || ''}</h3>
                   <p className="text-xs text-slate-400">{selectedLead.email} • {selectedLead.company || 'No Company'}</p>
                 </div>
                 

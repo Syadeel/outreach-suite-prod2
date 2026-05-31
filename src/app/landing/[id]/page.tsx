@@ -1,423 +1,354 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../../lib/supabase';
-import { Play, Pause, Volume2, VolumeX, Eye, ArrowRight, Laptop, Calendar, CheckSquare, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Play, Volume2, VolumeX } from 'lucide-react';
 
-interface LandingPageProps {
-  params: {
-    id: string;
-  };
-}
-
-export default function LandingPage({ params }: LandingPageProps) {
-  const videoId = params.id;
-  const [video, setVideo] = useState<any | null>(null);
-  const [lead, setLead] = useState<any | null>(null);
+export default function LandingPage({ params }: { params: { id: string } }) {
+  const [lead, setLead] = useState<any>(null);
+  const [video, setVideo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [ctaClicked, setCtaClicked] = useState(false);
-  const [viewLogged, setViewLogged] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [ended, setEnded] = useState(false);
+  const [showCTA, setShowCTA] = useState(false);
+  const [watchPct, setWatchPct] = useState(0);
+  const [bgScrollPos, setBgScrollPos] = useState(0);
+  const [websiteScreenshot, setWebsiteScreenshot] = useState('');
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playerMode, setPlayerMode] = useState<'personalized' | 'standard'>('personalized');
-  const [isMuted, setIsMuted] = useState(false);
+  const personVideoRef = useRef<HTMLVideoElement>(null);
+  const bgContainerRef = useRef<HTMLDivElement>(null);
+  const watchStarted = useRef(false);
+  const scrollInterval = useRef<any>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const maxPercentRef = useRef<number>(0);
-  const viewIdRef = useRef<string | null>(null);
-
-  const getDomain = (url: string) => {
-    if (!url) return '';
-    let hostname = url.trim().replace(/^(?:https?:\/\/)?(?:www\.)?/i, "");
-    hostname = hostname.split('/')[0];
-    return hostname;
-  };
-
-  const togglePlayback = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(err => console.error('Play failed:', err));
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !videoRef.current.muted;
-    setIsMuted(videoRef.current.muted);
-  };
+  const getLeadId = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('leadId');
+  }, []);
 
   useEffect(() => {
-    fetchPageData();
-  }, [videoId]);
-
-  const fetchPageData = async () => {
-    try {
-      // 1. Fetch Video recording branding details
-      const { data: videoRecord } = await supabase
-        .from('video_recordings')
-        .select('*')
-        .eq('id', videoId)
-        .single();
-      
-      if (videoRecord) {
-        setVideo(videoRecord);
-
-        // 2. Fetch Lead context from URL parameters if available
-        const urlParams = new URLSearchParams(window.location.search);
-        const leadId = urlParams.get('leadId');
-        
-        if (leadId) {
-          const { data: leadRecord } = await supabase
-            .from('leads')
-            .select('*')
-            .eq('id', leadId)
-            .single();
-          if (leadRecord) {
-            setLead(leadRecord);
-            if (!leadRecord.website) {
-              setPlayerMode('standard');
-            }
-          } else {
-            setPlayerMode('standard');
-          }
-        } else {
-          setPlayerMode('standard');
+    const fetchData = async () => {
+      try {
+        const leadId = getLeadId();
+        const { data: vData } = await supabase
+          .from('video_recordings').select('*').eq('id', params.id).single();
+        if (vData) {
+          setVideo(vData);
+          // Show CTA/calendly immediately if fields exist
+          if (vData.cta_url || vData.calendar_embed_code) setShowCTA(true);
         }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (leadId) {
+          const { data: lData } = await supabase
+            .from('leads').select('*').eq('id', leadId).single();
+          if (lData) {
+            setLead(lData);
+            // Fetch website screenshot
+            if (lData.website) {
+              const ws = lData.website.startsWith('http') ? lData.website : `https://${lData.website}`;
+              try {
+                const microlinkRes = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(ws)}&screenshot=true&meta=false`);
+                const microlinkData = await microlinkRes.json();
+                if (microlinkData?.data?.screenshot?.url) {
+                  setWebsiteScreenshot(microlinkData.data.screenshot.url);
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (err) { console.error(err); }
+      finally { setLoading(false); }
+    };
+    fetchData();
+  }, [params.id, getLeadId]);
 
-  // Log initial page view in Supabase (runs once video details are loaded)
   useEffect(() => {
-    if (video && !viewLogged) {
-      logPageView();
-    }
+    const el = personVideoRef.current;
+    if (!el || !video) return;
+    const onPlay = () => { watchStarted.current = true; };
+    const onTime = () => {
+      const pct = el.duration ? Math.round((el.currentTime / el.duration) * 100) : 0;
+      setWatchPct(pct);
+      if (pct >= 10) setShowCTA(true); // Show CTA early after 10% watch
+    };
+    const onEnd = () => { setEnded(true); setPlaying(false); setShowCTA(true); if (scrollInterval.current) clearInterval(scrollInterval.current); };
+    el.addEventListener('play', onPlay);
+    el.addEventListener('timeupdate', onTime);
+    el.addEventListener('ended', onEnd);
+    return () => {
+      el.removeEventListener('play', onPlay);
+      el.removeEventListener('timeupdate', onTime);
+      el.removeEventListener('ended', onEnd);
+    };
   }, [video]);
 
-  const logPageView = async () => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const leadId = urlParams.get('leadId') || null;
-
-      const { data: viewRecord, error } = await supabase
-        .from('video_views')
-        .insert({
-          video_id: video.id,
-          lead_id: leadId,
-          ip_address: 'Prospect Browser', // Captured in backend if desired, simplified here
-          watch_percentage: 0,
-          cta_clicked: false
-        })
-        .select('id')
-        .single();
-
-      if (!error && viewRecord) {
-        viewIdRef.current = viewRecord.id;
-        setViewLogged(true);
-
-        // Update the corresponding sent email record to mark as "clicked" if leadId is present
-        if (leadId) {
-          const { data: lastEmail } = await supabase
-            .from('sent_emails')
-            .select('id')
-            .eq('lead_id', leadId)
-            .order('sent_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (lastEmail) {
-            await supabase
-              .from('sent_emails')
-              .update({ clicked_at: new Date().toISOString() })
-              .eq('id', lastEmail.id);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error logging page view:', err);
+  // Scroll the website screenshot downward when playing
+  useEffect(() => {
+    if (playing) {
+      scrollInterval.current = setInterval(() => {
+        setBgScrollPos(prev => Math.min(prev + 0.8, 100));
+      }, 50);
+    } else {
+      if (scrollInterval.current) clearInterval(scrollInterval.current);
     }
+    return () => { if (scrollInterval.current) clearInterval(scrollInterval.current); };
+  }, [playing]);
+
+  const handlePlay = () => {
+    const el = personVideoRef.current;
+    if (!el || playing) return;
+    el.play();
+    setPlaying(true);
+    setEnded(false);
   };
 
-  // Monitor Video Playback to track watch percentages
-  const handleTimeUpdate = async () => {
-    if (!videoRef.current || !viewIdRef.current) return;
-    
-    const duration = videoRef.current.duration;
-    const currentTime = videoRef.current.currentTime;
-    
-    if (duration > 0) {
-      const percentage = Math.round((currentTime / duration) * 100);
-      if (percentage > maxPercentRef.current) {
-        maxPercentRef.current = percentage;
-        
-        // Update view records every 10% interval to minimize db hits
-        if (percentage % 10 === 0) {
-          await supabase
-            .from('video_views')
-            .update({ watch_percentage: maxPercentRef.current })
-            .eq('id', viewIdRef.current);
-        }
-      }
-    }
-  };
+  const prospectName = lead?.first_name || lead?.email?.split('@')[0] || 'there';
+  const brandColor = video?.brand_color || '#4F46E5';
+  const targetWebsite = lead?.website || '';
 
-  const handleCtaClick = async () => {
-    setCtaClicked(true);
-    if (viewIdRef.current) {
-      await supabase
-        .from('video_views')
-        .update({ cta_clicked: true })
-        .eq('id', viewIdRef.current);
-    }
-  };
+  // Editable text fields from video_recordings data (set via upload form)
+  const headingText = video?.title?.split('|||')[1] || `Hey ${prospectName}`;
+  const badgeText = video?.title?.split('|||')[0] || 'Personalized Video';
+  const bodyText = video?.cta_description || `I made this personalized walkthrough for you${lead?.company ? ` at ${lead.company}` : ''}. Watch how we can help scale your outreach with our acquisition solutions.`;
+  const brandTitle = video?.brand_title || 'Capital Acquisition';
+  const brandSubtitle = video?.brand_subtitle || 'Outreach Suite';
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        <div className="text-center space-y-2">
-          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm mt-4">Loading personalized pitch page...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
+  if (!video) return <div className="min-h-screen bg-white flex items-center justify-center"><p className="text-slate-500">Video not found.</p></div>;
 
-  if (!video) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 p-6">
-        <div className="text-center max-w-sm space-y-4">
-          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto" />
-          <h2 className="text-xl font-bold text-white">Video Pitch Not Found</h2>
-          <p className="text-sm text-slate-400">The video recording link may have expired or is incorrect. Please contact the sender.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const welcomeName = lead?.first_name ? `Hey ${lead.first_name}!` : 'Hey there!';
-  const customColor = video.brand_color || '#4F46E5';
-  
-  const domain = lead?.website ? getDomain(lead.website) : '';
-  const logoUrl = lead?.custom_fields?.logo_url || (domain ? `https://logo.clearbit.com/${domain}` : '');
-  const normalizedWebsite = lead?.website ? (/^https?:\/\//i.test(lead.website) ? lead.website : `https://${lead.website}`) : '';
+  // Circle sizes
+  const circleSizeIdle = 110;
+  const circleSizePlaying = 70;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between py-12 px-4 md:px-8 relative overflow-hidden">
-      
-      {/* Decorative Background Glows */}
-      <div className="absolute top-10 right-20 w-72 h-72 rounded-full blur-[100px] pointer-events-none" style={{ backgroundColor: `${customColor}20` }} />
-      <div className="absolute bottom-20 left-10 w-96 h-96 rounded-full blur-[120px] pointer-events-none" style={{ backgroundColor: `${customColor}10` }} />
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f0f9ff 100%)' }}>
+      <div className="max-w-6xl mx-auto min-h-screen flex flex-col md:flex-row items-center gap-6 md:gap-10 p-6 md:p-12">
 
-      <div className="max-w-5xl mx-auto w-full space-y-8 relative z-10">
-        
-        {/* Top Pitch Header */}
-        <div className="text-center space-y-4 flex flex-col items-center">
-          {logoUrl && (
-            <div className="w-16 h-16 rounded-2xl bg-white p-3 shadow-xl border border-slate-800/10 flex items-center justify-center transition-all hover:scale-105">
-              <img 
-                src={logoUrl} 
-                alt={`${lead?.company || 'Company'} Logo`} 
-                className="max-w-full max-h-full object-contain rounded"
-                onError={(e) => { e.currentTarget.parentElement!.style.display = 'none'; }}
-              />
-            </div>
-          )}
-          <div className="space-y-3">
-            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white">
-              {welcomeName}
-            </h1>
-            <p className="text-slate-400 text-sm max-w-xl mx-auto">
-              I prepared this short, personalized video walk-through for you and the team at{' '}
-              <span className="text-white font-semibold">{lead?.company || 'your company'}</span>.
-            </p>
+        {/* ===== LEFT COLUMN: TEXT + CTA ===== */}
+        <div className="flex-1 w-full max-w-lg space-y-6">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold border border-indigo-100">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            {badgeText}
           </div>
+
+          {/* Heading */}
+          <h1 className="text-3xl md:text-5xl font-bold text-slate-900 leading-tight">
+            {headingText}
+          </h1>
+
+          {lead?.company && (
+            <p className="text-lg text-slate-500 font-medium">
+              A walkthrough for {lead.company}
+            </p>
+          )}
+
+          {/* Body */}
+          <p className="text-base text-slate-600 leading-relaxed">
+            {bodyText}
+          </p>
+
+          {/* Brand */}
+          <div className="flex items-center gap-3 pt-2">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: brandColor }}>
+              {brandTitle.charAt(0)}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{brandTitle}</p>
+              <p className="text-xs text-slate-500">{brandSubtitle}</p>
+            </div>
+          </div>
+
+          {/* CTA #1 — Below text */}
+          {(showCTA || ended) && video?.cta_url && (
+            <button
+              onClick={() => window.open(video.cta_url, '_blank')}
+              className="w-full py-3.5 rounded-xl text-white font-bold text-base hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg animate-fadeIn"
+              style={{ backgroundColor: brandColor }}
+            >
+              {video.cta_text || 'Book a Call'} →
+            </button>
+          )}
         </div>
 
-        {/* Dynamic Video & CTA Block */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Left Column: Personalized Video (Span 7) */}
-          <div className="lg:col-span-7 space-y-4">
-            {playerMode === 'personalized' && lead?.website ? (
-              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl group flex flex-col">
-                
-                {/* Browser Mockup Header */}
-                <div className="w-full bg-slate-900 border-b border-slate-800/80 px-4 py-2.5 flex items-center select-none z-20">
-                  {/* Window Dots */}
-                  <div className="flex gap-1.5 mr-4 shrink-0">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
-                  </div>
-                  {/* Address Bar */}
-                  <div className="flex-1 bg-slate-950/80 border border-slate-800/85 text-[10px] text-slate-400 px-3 py-1 rounded-lg flex items-center justify-between font-mono truncate max-w-sm mx-auto shadow-inner">
-                    <span className="truncate">{normalizedWebsite}</span>
-                    <span className="text-emerald-400 font-bold text-[8px] tracking-wider uppercase ml-2 shrink-0">Secure</span>
-                  </div>
+        {/* ===== RIGHT COLUMN: VIDEO (16:9) + CALENDLY ===== */}
+        <div className="flex-1 w-full max-w-lg flex flex-col gap-4">
+
+          {/* 16:9 Video Box — stays on right, doesn't move */}
+          <div
+            className="relative rounded-2xl overflow-hidden bg-black shadow-2xl w-full"
+            style={{ aspectRatio: '16/9' }}
+          >
+            {/* LAYER 1: Prospect website screenshot (scrolls downward) */}
+            <div
+              ref={bgContainerRef}
+              className="absolute inset-0 overflow-hidden"
+            >
+              {websiteScreenshot ? (
+                <div
+                  className="w-full bg-cover bg-top"
+                  style={{
+                    height: '200%',
+                    backgroundImage: `url(${websiteScreenshot})`,
+                    backgroundSize: '100% auto',
+                    backgroundPosition: `50% ${bgScrollPos}%`,
+                    transition: 'none',
+                    filter: 'brightness(0.55) saturate(0.8)',
+                  }}
+                />
+              ) : targetWebsite ? (
+                <div
+                  className="w-full"
+                  style={{
+                    height: '200%',
+                    transform: `translateY(-${bgScrollPos / 2}%)`,
+                  }}
+                >
+                  <iframe
+                    src={targetWebsite.startsWith('http') ? targetWebsite : `https://${targetWebsite}`}
+                    className="w-full h-[50%] border-0 pointer-events-none"
+                    style={{ filter: 'brightness(0.55) saturate(0.8)' }}
+                    sandbox="allow-same-origin"
+                    loading="lazy"
+                    title="Website"
+                  />
                 </div>
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900" />
+              )}
+              {/* Dark overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+            </div>
 
-                {/* Viewport Container */}
-                <div className="relative flex-1 w-full overflow-hidden bg-slate-950 flex items-center justify-center">
-                  {/* Scrolling Website Background Container */}
-                  <div className="absolute inset-0 w-full h-full overflow-hidden select-none">
-                    <div 
-                      className="w-full transition-transform ease-linear"
-                      style={{
-                        backgroundImage: `url(https://image.microlink.io/?url=${encodeURIComponent(normalizedWebsite)}&screenshot=true&embed=screenshot.url)`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'top center',
-                        height: '400%',
-                        transform: isPlaying ? 'translateY(-75%)' : 'translateY(0%)',
-                        transitionDuration: isPlaying ? '40s' : '0s'
-                      }}
-                    />
-                    {/* Dark overlay for readability and premium look */}
-                    <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px] pointer-events-none" />
-                  </div>
-
-                  {/* Video Overlay Bubble (Floating Webcam Circle in Center) */}
-                  <div className="absolute z-10 w-36 h-36 md:w-44 md:h-44 rounded-full overflow-hidden border-4 border-white shadow-2xl transition-all duration-300 flex items-center justify-center bg-black cursor-pointer hover:scale-105 active:scale-95">
-                    <video
-                      ref={videoRef}
-                      src={video.video_url}
-                      className="w-full h-full object-cover rounded-full"
-                      onTimeUpdate={handleTimeUpdate}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                      onEnded={() => setIsPlaying(false)}
-                      onClick={togglePlayback}
-                      poster={video.video_url.replace(/\.[^/.]+$/, '.jpg')}
-                    />
-                    
-                    {!isPlaying && (
-                      <div 
-                        onClick={togglePlayback}
-                        className="absolute inset-0 flex items-center justify-center bg-black/45 hover:bg-black/35 transition-all pointer-events-none"
-                      >
-                        <Play className="w-10 h-10 text-white" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Left/Right Overlays */}
-                {logoUrl && (
-                  <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200/50 flex items-center gap-2 shadow-md">
-                    <img src={logoUrl} alt={lead.company} className="w-5 h-5 object-contain rounded" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                    <span className="text-[10px] font-bold text-slate-800">{lead.company}</span>
-                  </div>
-                )}
-
-                {/* Controls Overlay */}
-                <div className="absolute bottom-4 left-4 right-4 z-20 flex justify-between items-center">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={togglePlayback}
-                      className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold text-white-force"
-                    >
-                      {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      {isPlaying ? 'Pause' : 'Play'}
-                    </button>
-                    <button
-                      onClick={toggleMute}
-                      className="p-3 bg-slate-900/80 hover:bg-slate-800 text-white rounded-xl shadow-lg backdrop-blur transition-all active:scale-95 text-white-force"
-                    >
-                      {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => setPlayerMode('standard')}
-                    className="px-3.5 py-2.5 bg-slate-900/80 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-lg backdrop-blur transition-all active:scale-95 text-white-force flex items-center gap-1.5"
-                  >
-                    <Laptop className="w-3.5 h-3.5" /> Full Screen
-                  </button>
+            {/* LAYER 2: Person video (circular, stays inside 16:9 frame) */}
+            <div
+              className="absolute inset-0 z-10 w-full h-full cursor-pointer"
+              onClick={playing ? undefined : handlePlay}
+            >
+              <div
+                className="w-full h-full relative"
+                style={{
+                  display: 'flex',
+                  alignItems: playing ? 'flex-end' : 'center',
+                  justifyContent: playing ? 'flex-start' : 'center',
+                  padding: playing ? '12px' : '0',
+                  transition: 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                <div
+                  className="rounded-full overflow-hidden border-[3px] border-white/70 shadow-xl"
+                  style={{
+                    width: playing ? `${circleSizePlaying}px` : `${circleSizeIdle}px`,
+                    height: playing ? `${circleSizePlaying}px` : `${circleSizeIdle}px`,
+                    flexShrink: 0,
+                    transition: 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                >
+                  <video
+                    ref={personVideoRef}
+                    src={video.video_url}
+                    className="w-full h-full object-cover"
+                    muted={muted}
+                    playsInline
+                    preload="auto"
+                  />
                 </div>
               </div>
-            ) : (
-              <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative">
-                <video
-                  ref={videoRef}
-                  src={video.video_url}
-                  className="w-full h-auto aspect-video display-block"
-                  controls
-                  onTimeUpdate={handleTimeUpdate}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnded={() => setIsPlaying(false)}
-                  poster={video.video_url.replace(/\.[^/.]+$/, '.jpg')}
-                />
-                
-                {lead?.website && (
-                  <button
-                    onClick={() => setPlayerMode('personalized')}
-                    className="absolute bottom-4 right-4 z-20 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 text-white-force"
-                  >
-                    Personalized Web Mode
-                  </button>
-                )}
+            </div>
+
+            {/* Play overlay */}
+            {!playing && !ended && (
+              <div
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/15 hover:bg-black/10 transition-all cursor-pointer"
+                onClick={handlePlay}
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:scale-110 transition-transform">
+                    <Play className="w-7 h-7 text-indigo-600 ml-1" />
+                  </div>
+                  <span className="text-white text-xs font-medium bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
+                    Click to watch
+                  </span>
+                </div>
               </div>
             )}
-            <h3 className="text-md font-bold text-white px-2">{video.title}</h3>
-          </div>
 
-          {/* Right Column: CTA & Meeting Booker (Span 5) */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-              <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Next Step</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                If our acquisition solutions make sense for you, schedule a quick discovery call below:
-              </p>
-
-              {/* Calendly embed integration */}
-              {video.calendar_embed_code ? (
-                <div 
-                  className="w-full h-80 rounded-xl overflow-hidden border border-slate-800/80 bg-slate-950/20"
-                  dangerouslySetInnerHTML={{ __html: video.calendar_embed_code }}
-                />
-              ) : (
-                /* Fallback custom CTA button if booking widget code is not configured */
-                video.cta_url && (
-                  <a
-                    href={video.cta_url}
-                    onClick={handleCtaClick}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ backgroundColor: customColor }}
-                    className="w-full py-3.5 text-center text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/10 active:scale-95 flex items-center justify-center gap-2 text-sm hover:brightness-110"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    {video.cta_text || 'Book discovering session'}
-                  </a>
-                )
-              )}
-
-              {ctaClicked && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs">
-                  <CheckSquare className="w-4 h-4" />
-                  <span>CTA Redirect Recorded. Thank you!</span>
+            {/* Replay */}
+            {ended && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 cursor-pointer"
+                onClick={() => { const el = personVideoRef.current; if (el) { el.currentTime = 0; el.play(); setPlaying(true); setEnded(false); setBgScrollPos(0); } }}>
+                <div className="flex flex-col items-center gap-1">
+                  <Play className="w-8 h-8 text-white" />
+                  <span className="text-white text-xs">Watch again</span>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Mute */}
+            <button
+              onClick={(e) => { e.stopPropagation(); if (personVideoRef.current) { personVideoRef.current.muted = !personVideoRef.current.muted; setMuted(personVideoRef.current.muted); } }}
+              className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white/80 hover:text-white"
+            >
+              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+
+            {/* Progress bar */}
+            {playing && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 z-20">
+                <div className="h-full transition-all duration-300" style={{ width: `${watchPct}%`, backgroundColor: brandColor }} />
+              </div>
+            )}
+
+            {/* Scrolling indicator */}
+            {playing && !ended && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 text-white/50 text-[10px] animate-pulse">
+                ↓ scrolling
+              </div>
+            )}
           </div>
 
-        </div>
+          {/* CTA #2 — Below video */}
+          {(showCTA || ended) && video?.cta_url && (
+            <button
+              onClick={() => window.open(video.cta_url, '_blank')}
+              className="w-full py-3.5 rounded-xl text-white font-bold text-base hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg animate-fadeIn"
+              style={{ backgroundColor: brandColor }}
+            >
+              {video.cta_text || 'Book a Call'} →
+            </button>
+          )}
 
+          {/* Calendly — Below video section */}
+          {(showCTA || ended) && video?.calendar_embed_code && (
+            <div className="w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm animate-fadeIn">
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: brandColor }} />
+                <span className="text-xs font-semibold text-slate-700">Schedule a time to chat</span>
+              </div>
+              <div className="calend-embed" dangerouslySetInnerHTML={{ __html: video.calendar_embed_code }} />
+            </div>
+          )}
+
+          {/* CTA #3 — Below calendly */}
+          {(showCTA || ended) && video?.cta_url && (
+            <button
+              onClick={() => window.open(video.cta_url, '_blank')}
+              className="w-full py-3 rounded-xl text-white font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow animate-fadeIn"
+              style={{ backgroundColor: brandColor }}
+            >
+              {video.cta_text || 'Book a Call'} →
+            </button>
+          )}
+
+          <p className="text-xs text-slate-400 text-center">Powered by Capital Acquisition</p>
+        </div>
       </div>
 
-      {/* Footer Branding */}
-      <footer className="text-center text-slate-600 text-xs mt-12">
-        <p>© {new Date().getFullYear()} Outreach Suite VideoSpark cloned system. Secured personal landing.</p>
-      </footer>
+      <style jsx global>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+        .calend-embed iframe { width: 100% !important; min-height: 280px; }
+        .calend-embed .calendly-inline-widget { min-width: auto !important; height: 280px !important; }
+      `}</style>
     </div>
   );
 }

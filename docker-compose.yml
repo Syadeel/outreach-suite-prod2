@@ -9,7 +9,7 @@ services:
     container_name: outreach-app
     restart: always
     env_file:
-      - .env.local
+      - .env
     ports:
       - "3000:3000"
     networks:
@@ -31,6 +31,19 @@ services:
       - N8N_METRICS=false
     volumes:
       - n8n_data:/home/node/.n8n
+      # VoiceKit service for lip‑sync video generation
+  voicekit:
+    build:
+      context: ../lipkit
+      dockerfile: Dockerfile
+    container_name: outreach-voicekit
+    restart: unless-stopped
+    env_file:
+      - ../lipkit/.env
+    volumes:
+      - ../lipkit:/app
+    networks:
+      - outreach-network
     networks:
       - outreach-network
 

@@ -13,6 +13,7 @@ export default function CampaignsTab() {
   const [showLeadLinker, setShowLeadLinker] = useState<string | null>(null);
   
   // New Campaign Form State
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [steps, setSteps] = useState<any[]>([
     { subject: 'Quick question for {{first_name}}', body: 'Hey {{first_name}},\n\nI was looking at {{company}}...', delay_hours: 0, videoId: '' }
@@ -22,9 +23,63 @@ export default function CampaignsTab() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [linkerSearch, setLinkerSearch] = useState('');
 
+  // Templates state
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [lpTemplates, setLpTemplates] = useState<any[]>([]);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  const fetchTemplates = async () => {
+    try {
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { data, error } = await supabase.from('email_templates').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (err) {
+      console.warn('Fallback to localStorage for templates in campaigns tab');
+      try {
+        const stored = localStorage.getItem('os_email_templates');
+        if (stored) {
+          setTemplates(JSON.parse(stored));
+        } else {
+          setTemplates([
+            {
+              id: 'default-1',
+              name: 'Cold Pitch: Acquisition Systems',
+              subject: 'Quick question regarding {{company}}’s growth',
+              body: 'Hey {{first_name}},\n\nI was looking at {{website}} and noticed how your team handles user acquisition.\n\nHere at Capital Acquisition Systems, we build bespoke engines to add qualified opportunities directly to your sales pipeline on performance basis.\n\nLet me know if you would be open to a quick 10-minute chat next week to discuss this.\n\nBest,\nGhost'
+            },
+            {
+              id: 'default-2',
+              name: 'Quick Follow-Up',
+              subject: 'Re: Quick question regarding {{company}}’s growth',
+              body: 'Hey {{first_name}},\n\nJust wanted to bump this to the top of your inbox. Did you get a chance to watch the video walkthrough I prepared for {{company}}?\n\nLet me know if you have any questions.\n\nThanks,\nGhost'
+            }
+          ]);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Fetch landing page templates too
+    try {
+      let lpList: any[] = [];
+      const storedLp = localStorage.getItem('os_landing_page_templates');
+      if (storedLp) {
+        lpList = JSON.parse(storedLp);
+      }
+      if (lpList.length === 0 && supabase) {
+        const { data } = await supabase.from('landing_page_templates').select('*').order('created_at', { ascending: false });
+        if (data) lpList = data;
+      }
+      setLpTemplates(lpList);
+    } catch (e) {
+      console.error('Failed to load landing page templates in campaigns:', e);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -40,6 +95,8 @@ export default function CampaignsTab() {
       const { data: leadData } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
       if (leadData) setLeads(leadData);
 
+      // Get templates
+      await fetchTemplates();
     } catch (err) {
       console.error(err);
     } finally {
@@ -63,21 +120,89 @@ export default function CampaignsTab() {
     setSteps(nextSteps);
   };
 
+  const handleLoadTemplate = (stepIndex: number, templateId: string) => {
+    if (!templateId) return;
+    const selected = templates.find(t => t.id === templateId);
+    if (selected) {
+      const nextSteps = [...steps];
+      nextSteps[stepIndex] = {
+        ...nextSteps[stepIndex],
+        subject: selected.subject,
+        body: selected.body
+      };
+      setSteps(nextSteps);
+    }
+  };
+
+  const handleSaveAsTemplate = async (stepIndex: number) => {
+    const step = steps[stepIndex];
+    if (!step.subject.trim() || !step.body.trim()) {
+      alert('Please fill out the Subject and Body before saving as a template.');
+      return;
+    }
+
+    const templateName = prompt('Enter a name for this template:');
+    if (!templateName || !templateName.trim()) return;
+
+    const templateData = {
+      name: templateName.trim(),
+      subject: step.subject.trim(),
+      body: step.body.trim()
+    };
+
+    try {
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase.from('email_templates').insert([templateData]);
+      if (error) throw error;
+      alert('Template saved successfully!');
+      fetchTemplates();
+    } catch (err) {
+      console.warn('Saving template to Supabase failed, saving to localStorage instead:', err);
+      try {
+        const stored = localStorage.getItem('os_email_templates');
+        const list = stored ? JSON.parse(stored) : [];
+        const newTemplate = {
+          id: 'local-' + Date.now(),
+          ...templateData,
+          created_at: new Date().toISOString()
+        };
+        list.unshift(newTemplate);
+        localStorage.setItem('os_email_templates', JSON.stringify(list));
+        setTemplates(list);
+        alert('Template saved successfully to Local Storage!');
+      } catch (e) {
+        console.error(e);
+        alert('Failed to save template.');
+      }
+    }
+  };
+
   const handleSaveCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || steps.length === 0) return;
 
     try {
-      const { error } = await supabase.from('campaigns').insert({
-        name,
-        steps,
-        status: 'draft',
-      });
+      let error;
+      if (editingCampaignId) {
+        const res = await supabase.from('campaigns').update({
+          name,
+          steps,
+        }).eq('id', editingCampaignId);
+        error = res.error;
+      } else {
+        const res = await supabase.from('campaigns').insert({
+          name,
+          steps,
+          status: 'draft',
+        });
+        error = res.error;
+      }
 
       if (!error) {
         setName('');
         setSteps([{ subject: 'Quick question for {{first_name}}', body: 'Hey {{first_name}},\n\nI was looking at {{company}}...', delay_hours: 0, videoId: '' }]);
         setShowBuilder(false);
+        setEditingCampaignId(null);
         fetchData();
       } else {
         alert(error.message);
@@ -85,6 +210,13 @@ export default function CampaignsTab() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleEditCampaign = (camp: any) => {
+    setEditingCampaignId(camp.id);
+    setName(camp.name);
+    setSteps(camp.steps || []);
+    setShowBuilder(true);
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
@@ -194,7 +326,7 @@ export default function CampaignsTab() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold tracking-tight text-heading flex items-center gap-2">
             <Mail className="w-7 h-7 text-emerald-400" />
             Outreach Campaigns
           </h2>
@@ -226,7 +358,7 @@ export default function CampaignsTab() {
               <div className="space-y-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-lg font-bold text-white">{camp.name}</h3>
+                    <h3 className="text-lg font-bold text-heading">{camp.name}</h3>
                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase mt-1.5 border ${
                       camp.status === 'active' 
                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 animate-pulse'
@@ -248,6 +380,15 @@ export default function CampaignsTab() {
                     >
                       {camp.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </button>
+                    {camp.status !== 'active' && (
+                      <button
+                        onClick={() => handleEditCampaign(camp)}
+                        className="p-2 border border-slate-850 hover:border-indigo-500/40 text-slate-500 hover:text-indigo-400 rounded-lg transition-colors"
+                        title="Edit Campaign"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteCampaign(camp.id)}
                       className="p-2 border border-slate-850 hover:border-rose-500/40 text-slate-500 hover:text-rose-400 rounded-lg transition-colors"
@@ -261,7 +402,7 @@ export default function CampaignsTab() {
                 <div className="text-xs text-slate-400 space-y-1 bg-slate-950/45 p-3.5 rounded-xl border border-slate-900/60">
                   <div className="flex justify-between">
                     <span>Total Sequence Steps:</span>
-                    <span className="font-semibold text-white">{(camp.steps || []).length} steps</span>
+                    <span className="font-semibold text-heading">{(camp.steps || []).length} steps</span>
                   </div>
                 </div>
               </div>
@@ -285,8 +426,13 @@ export default function CampaignsTab() {
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-panel w-full max-w-4xl rounded-2xl border border-slate-800/80 max-h-[85vh] overflow-y-auto p-6 space-y-6">
             <div className="flex justify-between items-center border-b border-slate-800/60 pb-4">
-              <h3 className="text-lg font-bold text-white">Build Sequence Campaign</h3>
-              <button onClick={() => setShowBuilder(false)} className="text-slate-500 hover:text-slate-300">
+              <h3 className="text-lg font-bold text-heading">{editingCampaignId ? 'Edit Sequence Campaign' : 'Build Sequence Campaign'}</h3>
+              <button onClick={() => {
+                setShowBuilder(false);
+                setEditingCampaignId(null);
+                setName('');
+                setSteps([{ subject: 'Quick question for {{first_name}}', body: 'Hey {{first_name}},\n\nI was looking at {{company}}...', delay_hours: 0, videoId: '' }]);
+              }} className="text-slate-500 hover:text-slate-300">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -335,6 +481,29 @@ export default function CampaignsTab() {
                         )}
                       </div>
 
+                      <div className="flex flex-col sm:flex-row gap-3 items-end bg-slate-950/25 p-3.5 rounded-xl border border-slate-900/60">
+                        <div className="flex-1 w-full">
+                          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 text-left">Load Template</label>
+                          <select
+                            onChange={(e) => handleLoadTemplate(idx, e.target.value)}
+                            defaultValue=""
+                            className="w-full px-3 py-1.5 rounded-lg glass-input text-[11px] cursor-pointer"
+                          >
+                            <option value="">-- Select Template to Load --</option>
+                            {templates.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveAsTemplate(idx)}
+                          className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-emerald-400 border border-slate-850 rounded-lg text-[10px] font-bold transition-all shrink-0"
+                        >
+                          Save as template
+                        </button>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-span-2">
                           <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Subject Line</label>
@@ -368,7 +537,7 @@ export default function CampaignsTab() {
                           required
                         />
                         <p className="text-[10px] text-slate-500 mt-1">
-                          Available variables: <code className="text-emerald-400 font-bold">{"{{first_name}}"}</code>, <code className="text-emerald-400 font-bold">{"{{last_name}}"}</code>, <code className="text-emerald-400 font-bold">{"{{company}}"}</code>, <code className="text-emerald-400 font-bold">{"{{website}}"}</code>.
+                          Available variables: <code className="text-emerald-400 font-bold">{"{{first_name}}"}</code>, <code className="text-emerald-400 font-bold">{"{{last_name}}"}</code>, <code className="text-emerald-400 font-bold">{"{{company}}"}</code>, <code className="text-emerald-400 font-bold">{"{{website}}"}</code>, <code className="text-indigo-400 font-bold">{"{{video_gif}}"}</code>.
                         </p>
                       </div>
 
@@ -382,10 +551,26 @@ export default function CampaignsTab() {
                         >
                           <option value="">None (Plain text email)</option>
                           {videos.map(v => (
-                            <option key={v.id} value={v.id}>{v.title}</option>
+                            <option key={v.id} value={v.id}>{v.title.split('|||')[0]}</option>
                           ))}
                         </select>
                       </div>
+
+                      {step.videoId && (
+                        <div className="animate-fadeIn mt-3">
+                          <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Landing Page Template Override (Optional)</label>
+                          <select
+                            value={step.lpTemplateId || ''}
+                            onChange={(e) => handleStepChange(idx, 'lpTemplateId', e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg glass-input text-xs cursor-pointer text-slate-200"
+                          >
+                            <option value="">Use video pitch default branding settings</option>
+                            {lpTemplates.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -394,7 +579,12 @@ export default function CampaignsTab() {
               <div className="flex justify-end gap-2 border-t border-slate-800/60 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowBuilder(false)}
+                  onClick={() => {
+                    setShowBuilder(false);
+                    setEditingCampaignId(null);
+                    setName('');
+                    setSteps([{ subject: 'Quick question for {{first_name}}', body: 'Hey {{first_name}},\n\nI was looking at {{company}}...', delay_hours: 0, videoId: '' }]);
+                  }}
                   className="px-4 py-2 border border-slate-850 text-slate-400 hover:bg-slate-850 text-xs font-semibold rounded-lg"
                 >
                   Cancel
@@ -403,7 +593,7 @@ export default function CampaignsTab() {
                   type="submit"
                   className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg"
                 >
-                  Save Campaign Sequence
+                  {editingCampaignId ? 'Save Changes' : 'Save Campaign Sequence'}
                 </button>
               </div>
             </form>
@@ -441,7 +631,7 @@ export default function CampaignsTab() {
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="glass-panel w-full max-w-2xl rounded-2xl border border-slate-800/80 max-h-[85vh] overflow-y-auto p-6 space-y-6">
               <div className="flex justify-between items-center border-b border-slate-800/60 pb-4">
-                <h3 className="text-lg font-bold text-white">Add Leads to Sequence</h3>
+                <h3 className="text-lg font-bold text-heading">Add Leads to Sequence</h3>
                 <button
                   onClick={() => {
                     setShowLeadLinker(null);
@@ -502,7 +692,7 @@ export default function CampaignsTab() {
                           }`}
                         >
                           <div>
-                            <div className="font-semibold text-white text-sm">{lead.first_name} {lead.last_name || ''}</div>
+                            <div className="font-semibold text-heading text-sm">{lead.first_name} {lead.last_name || ''}</div>
                             <div className="text-xs text-slate-500">{lead.email} - {lead.company || 'No Company'}</div>
                           </div>
                           <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${

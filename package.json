@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:csv": "node scripts/create_test_csv.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -19,7 +20,9 @@
     "next": "14.2.3",
     "nodemailer": "^6.9.13",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "recharts": "^3.8.1",
+    "csv-parse": "^5.5.5"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.6.4",

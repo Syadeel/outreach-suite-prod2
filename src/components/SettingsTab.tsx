@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Plus, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Mail, Plus, AlertCircle, CheckCircle, RefreshCw, Activity, Clock, Shield } from 'lucide-react';
 
 export default function SettingsTab() {
   const [inboxes, setInboxes] = useState<any[]>([]);
@@ -10,6 +10,8 @@ export default function SettingsTab() {
   const [smtpPass, setSmtpPass] = useState('');
   const [dailyLimit, setDailyLimit] = useState(50);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tempLimit, setTempLimit] = useState<number>(50);
 
   useEffect(() => {
     fetchInboxes();
@@ -81,11 +83,28 @@ export default function SettingsTab() {
     fetchInboxes();
   };
 
+  const handleUpdateLimit = async (id: string, newLimit: number) => {
+    setEditingId(null);
+    try {
+      const { error } = await supabase
+        .from('inboxes')
+        .update({ daily_limit: newLimit })
+        .eq('id', id);
+      if (!error) {
+        fetchInboxes();
+      } else {
+        alert(error.message);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="space-y-8 p-1">
       {/* Tab Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight text-white">Settings & Inboxes</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-heading">Settings & Inboxes</h2>
         <p className="text-slate-400 text-sm mt-1">
           Manage your sending inboxes. Connect SMTP details for sending and sign in via Google OAuth to monitor replies.
         </p>
@@ -96,7 +115,7 @@ export default function SettingsTab() {
         
         {/* Left Column: Form */}
         <div className="lg:col-span-1 glass-panel p-6 rounded-2xl border border-slate-800/60 h-fit">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-heading mb-4 flex items-center gap-2">
             <Plus className="w-5 h-5 text-indigo-400" />
             Add Sending Inbox
           </h3>
@@ -190,7 +209,7 @@ export default function SettingsTab() {
 
         {/* Right Column: List of Connected Inboxes */}
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-heading flex items-center gap-2">
             <Mail className="w-5 h-5 text-indigo-400" />
             Connected Accounts ({inboxes.length})
           </h3>
@@ -213,7 +232,16 @@ export default function SettingsTab() {
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white">{inbox.email}</span>
+                      <span className="font-semibold text-heading">{inbox.email}</span>
+                      {/* Warmup/Status badge */}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold border ${
+                        inbox.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                        inbox.status === 'warmup' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
+                        inbox.status === 'paused' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
+                        'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {inbox.status || 'unknown'}
+                      </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] uppercase font-bold bg-slate-800 text-slate-300 border border-slate-700">
                         {inbox.provider}
                       </span>
@@ -227,14 +255,70 @@ export default function SettingsTab() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1 space-x-3">
-                      <span>Limit: {inbox.sent_today} / {inbox.daily_limit} sent today</span>
-                      <span>•</span>
+                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
+                      <span>Limit: {inbox.sent_today} /</span>
+                      {editingId === inbox.id ? (
+                        <input
+                          type="number"
+                          className="w-16 px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-heading text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                          value={tempLimit}
+                          onChange={(e) => setTempLimit(parseInt(e.target.value) || 1)}
+                          onBlur={() => handleUpdateLimit(inbox.id, tempLimit)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleUpdateLimit(inbox.id, tempLimit);
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span 
+                          className="underline decoration-dashed cursor-pointer text-indigo-400 hover:text-indigo-300 font-semibold"
+                          title="Click to edit daily limit"
+                          onClick={() => {
+                            setEditingId(inbox.id);
+                            setTempLimit(inbox.daily_limit);
+                          }}
+                        >
+                          {inbox.daily_limit}
+                        </span>
+                      )}
+                      <span>sent today</span>
+                      <span className="text-slate-600">•</span>
                       <span>SMTP: {inbox.smtp_host}:{inbox.smtp_port}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 w-full md:w-auto">
+                    {/* Warmup / Status toggle */}
+                    <div className="flex border border-slate-700/60 rounded-lg overflow-hidden text-[10px]">
+                      <button
+                        onClick={async () => {
+                          await supabase.from('inboxes').update({ status: 'active' }).eq('id', inbox.id);
+                          fetchInboxes();
+                        }}
+                        className={`px-2.5 py-2 font-semibold transition-all ${inbox.status === 'active' ? 'bg-emerald-600/30 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        Active
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await supabase.from('inboxes').update({ status: 'warmup' }).eq('id', inbox.id);
+                          fetchInboxes();
+                        }}
+                        className={`px-2.5 py-2 font-semibold transition-all border-x border-slate-700/60 ${inbox.status === 'warmup' ? 'bg-amber-600/30 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        Warmup
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await supabase.from('inboxes').update({ status: 'paused' }).eq('id', inbox.id);
+                          fetchInboxes();
+                        }}
+                        className={`px-2.5 py-2 font-semibold transition-all ${inbox.status === 'paused' ? 'bg-rose-600/30 text-rose-400' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        Paused
+                      </button>
+                    </div>
                     {!inbox.oauth_refresh_token && (
                       <button
                         onClick={() => handleConnectOAuth(inbox.email)}

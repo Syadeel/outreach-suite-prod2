@@ -8,7 +8,8 @@ import {
   Settings,
   Flame,
   Sun,
-  Moon
+  Moon,
+  FileText
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -42,11 +43,12 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   };
 
   const menuItems = [
+    { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'campaigns', label: 'Campaigns', icon: Mail },
+    { id: 'templates', label: 'Email Templates', icon: FileText },
     { id: 'leads', label: 'Leads & CRM', icon: Users },
     { id: 'video', label: 'VideoSpark Recorder', icon: Video },
     { id: 'inbox', label: 'Unified Inbox', icon: Inbox },
-    { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'settings', label: 'Settings & Inboxes', icon: Settings },
   ];
 
@@ -72,7 +74,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-gradient-to-r from-emerald-600/40 to-teal-600/20 border-l-4 border-emerald-500 text-white font-medium shadow-lg shadow-emerald-500/10'
+                    ? 'bg-gradient-to-r from-emerald-600/40 to-teal-600/20 border-l-4 border-emerald-500 text-heading font-medium shadow-lg shadow-emerald-500/10'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                 }`}
               >
@@ -91,7 +93,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             G
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-200">Ghost</h4>
+            <h4 className="text-sm font-semibold text-heading">Ghost</h4>
             <p className="text-xs text-slate-500">Personal Workspace</p>
           </div>
         </div>

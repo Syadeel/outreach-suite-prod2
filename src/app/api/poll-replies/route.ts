@@ -2,8 +2,15 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { checkGmailReplies } from '@/lib/gmail';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
+    // Check if database connection is configured
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase Admin is not configured. Please check your environment variables.' }, { status: 500 });
+    }
+
     // 1. Fetch all active inboxes with Google OAuth credentials
     const { data: inboxes, error } = await supabaseAdmin
       .from('inboxes')
