@@ -6,10 +6,19 @@ export function middleware(req: NextRequest) {
   const PASSWORD = process.env.OS_PASSWORD || 'capital123'; 
   
   const pathname = req.nextUrl.pathname;
+  const host = req.headers.get('host') || '';
+
+  // If user is accessing via voicekit subdomain, rewrite root to the embed page
+  if (host.includes('voicekit.thecapitalacquisition.com')) {
+    if (pathname === '/') {
+      return NextResponse.rewrite(new URL('/voicekit-embed', req.url));
+    }
+  }
   
   // Public paths that do not require authentication
   if (
     pathname === '/' ||
+    pathname === '/voicekit-embed' ||
     pathname.startsWith('/landing') || 
     pathname.startsWith('/api/tracking') ||
     pathname.startsWith('/api/cron') ||
