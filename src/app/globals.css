@@ -74,3 +74,9 @@ body.light {
 
 /* Landing page: always dark */
 .min-h-screen.bg-black, [class*="landing"] { color-scheme: dark; }
+
+/* 3.5xl fallback */
+@utility text-3-5xl {
+  font-size: 2rem;
+  line-height: 1.1;
+}
