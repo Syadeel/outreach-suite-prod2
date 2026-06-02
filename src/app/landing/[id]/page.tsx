@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import {
   Play, Pause, RotateCcw, Volume2, VolumeX,
@@ -208,7 +209,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
   );
   const headingText = titleHeading || `Hey ${prospectName} 👋`;
   const bodyText = video?.cta_description
-    || `I put together this personalized video for you${lead?.company ? ` and the team at ${lead.company}` : ''}. I think you'll find the first 30 seconds especially relevant.`;
+    || `I put together this personalized video for you${lead?.company ? ` and the team at ${lead.company}` : ''}. I think you&apos;ll find the first 30 seconds especially relevant.`;
 
   /* ---------- brand ---------- */
   const brandTitle = video?.brand_title || 'Capital Acquisition';
@@ -248,7 +249,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {video.brand_logo_url ? (
-              <img src={video.brand_logo_url} alt="" className="h-7 w-auto rounded-lg" />
+              <Image src={video.brand_logo_url!} alt="" width={28} height={28} className="h-7 w-auto rounded-lg" />
             ) : (
               <div className="h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs text-white" style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)` }}>
                 {initials(brandTitle)}
@@ -523,8 +524,8 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               Why this matters
             </div>
             <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
-              This isn't a generic pitch{lead?.company ? `, ${prospectName}` : ''}.<br />
-              <span className="text-white/40">It was built specifically for {lead?.company ? `what you're building at ${lead.company}` : 'your business'}.</span>
+              This isn&apos;t a generic pitch{lead?.company ? `, ${prospectName}` : ''}.<br />
+              <span className="text-white/40">It was built specifically for {lead?.company ? `what you&apos;re building at ${lead.company}` : 'your business'}.</span>
             </h2>
             <p className="text-white/35 text-sm leading-relaxed max-w-lg mx-auto">
               We researched your company, identified the key opportunity, and recorded this video so you can see the fit in under 60 seconds.
@@ -602,7 +603,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
         <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             {video.brand_logo_url ? (
-              <img src={video.brand_logo_url} alt="" className="h-5 w-auto rounded opacity-40" />
+              <Image src={video.brand_logo_url!} alt="" width={20} height={20} className="h-5 w-auto rounded opacity-40" />
             ) : (
               <div className="h-5 w-5 rounded flex items-center justify-center text-[7px] font-bold text-white/40" style={{ background: brandColor }}>
                 {initials(brandTitle)}
