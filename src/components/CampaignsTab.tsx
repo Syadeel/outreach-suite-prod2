@@ -29,6 +29,7 @@ export default function CampaignsTab() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchTemplates = async () => {
@@ -539,6 +540,37 @@ export default function CampaignsTab() {
                         <p className="text-[10px] text-slate-500 mt-1">
                           Available variables: <code className="text-emerald-400 font-bold">{"{{first_name}}"}</code>, <code className="text-emerald-400 font-bold">{"{{last_name}}"}</code>, <code className="text-emerald-400 font-bold">{"{{company}}"}</code>, <code className="text-emerald-400 font-bold">{"{{website}}"}</code>, <code className="text-indigo-400 font-bold">{"{{video_gif}}"}</code>.
                         </p>
+                      </div>
+
+                      {/* VoiceKit auto-generation toggle */}
+                      <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-4 space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={step.useVoiceKit || false}
+                            onChange={(e) => handleStepChange(idx, 'useVoiceKit', e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold text-indigo-300">Generate personalized video with VoiceKit</span>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Auto-generates a custom video for each lead using their name + company</p>
+                          </div>
+                        </label>
+                        {step.useVoiceKit && (
+                          <div className="animate-fadeIn space-y-2">
+                            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Custom VK Script (Optional)</label>
+                            <textarea
+                              value={step.vk_script || ''}
+                              onChange={(e) => handleStepChange(idx, 'vk_script', e.target.value)}
+                              placeholder={`Hey {{first_name}}, I wanted to reach out about {{company}}... (leave blank for default script)`}
+                              className="w-full px-3 py-2 rounded-lg glass-input text-xs h-20 font-mono resize-y"
+                            />
+                            <p className="text-[10px] text-slate-500">
+                              Uses <code className="text-indigo-400">{"{{first_name}}"}</code> and <code className="text-indigo-400">{"{{company}}"}</code> variables.
+                              Requires VoiceKit API running on port 5000.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Video Spark Embed link selection */}

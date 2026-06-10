@@ -220,7 +220,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
   /* ================================================================ */
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--landing-bg)' }}>
         <div className="relative w-16 h-16">
           <div className="absolute inset-0 rounded-full border-2 border-white/10" />
           <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-indigo-500 animate-spin" />
@@ -232,7 +232,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
 
   if (!video) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--landing-bg)' }}>
         <p className="text-white/40 text-lg">Page not found.</p>
       </div>
     );
@@ -242,10 +242,10 @@ export default function LandingPage({ params }: { params: { id: string } }) {
   /*  RENDER                                                           */
   /* ================================================================ */
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white antialiased">
+    <div className="min-h-screen text-[var(--landing-text)] antialiased landing-page" style={{ backgroundColor: 'var(--landing-bg)' }}>
 
       {/* ---- NAV BAR ---- */}
-      <nav className="fixed top-0 inset-x-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/[0.06]">
+      <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl border-b" style={{ backgroundColor: 'color-mix(in srgb, var(--landing-bg) 80%, transparent)', borderColor: 'var(--landing-border)' }}>
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {video.brand_logo_url ? (
@@ -345,7 +345,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
             {/* ---------------------------------------------------------- */}
             <div className="order-1 lg:order-2" onMouseEnter={() => setHoveringVideo(true)} onMouseLeave={() => setHoveringVideo(false)}>
 
-              <div className="relative rounded-3xl overflow-hidden bg-[#111118] ring-1 ring-white/[0.08] shadow-2xl shadow-black/40" style={{ aspectRatio: '16/10' }}>
+              <div className="relative rounded-3xl overflow-hidden ring-1 shadow-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--landing-bg) 95%, white)', aspectRatio: '16/10', borderColor: 'var(--landing-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
 
                 {/* === BACKGROUND : scrolling website screenshot === */}
                 <div className="absolute inset-0 overflow-hidden">
@@ -623,6 +623,9 @@ export default function LandingPage({ params }: { params: { id: string } }) {
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+        body.light .landing-page ::-webkit-scrollbar-thumb {
+          background: rgba(15,23,42,0.15);
+        }
 
         /* — selection — */
         ::selection { background: ${brandColor}44; color: white; }
@@ -636,6 +639,11 @@ export default function LandingPage({ params }: { params: { id: string } }) {
           border: none !important;
           border-radius: 12px !important;
           filter: invert(1) hue-rotate(180deg);
+        }
+        body.light .landing-page .calend-embed iframe,
+        body.light .landing-page .calendly-inline-widget,
+        body.light .landing-page .calendly-overlay iframe {
+          filter: none;
         }
 
         /* — animate pulse for badge dot — */

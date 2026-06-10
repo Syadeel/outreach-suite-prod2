@@ -51,6 +51,7 @@ export default function AnalyticsTab() {
 
   useEffect(() => {
     fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeframe]);
 
   const fetchAnalytics = async () => {

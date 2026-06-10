@@ -13,6 +13,7 @@ export default function InboxTab() {
 
   useEffect(() => {
     fetchRepliedLeads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchRepliedLeads = async () => {

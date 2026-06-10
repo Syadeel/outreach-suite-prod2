@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       .eq('status', 'pending')
       .not('next_send_time', 'is', null)
       .lte('next_send_time', now)
-      .limit(5);
+      .limit(20);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

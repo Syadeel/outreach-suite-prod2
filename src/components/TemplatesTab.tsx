@@ -59,6 +59,7 @@ export default function TemplatesTab() {
 
   useEffect(() => {
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchTemplates = async () => {

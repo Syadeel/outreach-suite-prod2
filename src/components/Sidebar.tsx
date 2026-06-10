@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Mail, 
   Users, 
-  Video, 
-  Inbox, 
   BarChart2, 
   Settings,
   Flame,
   Sun,
   Moon,
-  FileText
+  Mail
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -45,11 +42,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const menuItems = [
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'campaigns', label: 'Campaigns', icon: Mail },
-    { id: 'templates', label: 'Email Templates', icon: FileText },
     { id: 'leads', label: 'Leads & CRM', icon: Users },
-    { id: 'video', label: 'VideoSpark Recorder', icon: Video },
-    { id: 'inbox', label: 'Unified Inbox', icon: Inbox },
-    { id: 'settings', label: 'Settings & Inboxes', icon: Settings },
   ];
 
   return (
@@ -87,22 +80,35 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       </div>
 
       {/* User Branding & Theme Footer */}
-      <div className="border-t border-slate-800/60 pt-4 flex items-center justify-between px-2">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-300">
-            G
+      <div className="border-t border-slate-800/60 pt-4 space-y-2 px-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-300">
+              G
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-heading">Ghost</h4>
+              <p className="text-xs text-slate-500">Personal Workspace</p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-sm font-semibold text-heading">Ghost</h4>
-            <p className="text-xs text-slate-500">Personal Workspace</p>
-          </div>
+          <button
+            onClick={toggleTheme}
+            title={`Switch to ${isLightMode ? 'Dark' : 'Light'} Mode`}
+            className="p-2 rounded-xl text-slate-400 hover:text-emerald-400 hover:bg-slate-800/40 transition-colors"
+          >
+            {isLightMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
         </div>
         <button
-          onClick={toggleTheme}
-          title={`Switch to ${isLightMode ? 'Dark' : 'Light'} Mode`}
-          className="p-2 rounded-xl text-slate-400 hover:text-emerald-400 hover:bg-slate-800/40 transition-colors"
+          onClick={() => setActiveTab('settings')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+            activeTab === 'settings'
+              ? 'bg-gradient-to-r from-emerald-600/40 to-teal-600/20 border-l-4 border-emerald-500 text-heading font-medium'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
         >
-          {isLightMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'text-emerald-400' : 'text-slate-400'}`} />
+          <span>Settings</span>
         </button>
       </div>
     </aside>

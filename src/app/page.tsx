@@ -5,10 +5,12 @@ import Sidebar from '../components/Sidebar';
 import CampaignsTab from '../components/CampaignsTab';
 import LeadsTab from '../components/LeadsTab';
 import VideoTab from '../components/VideoTab';
+import VoiceKitTab from '../components/VoiceKitTab';
 import InboxTab from '../components/InboxTab';
 import AnalyticsTab from '../components/AnalyticsTab';
 import SettingsTab from '../components/SettingsTab';
 import TemplatesTab from '../components/TemplatesTab';
+import SettingsShell from '../components/SettingsShell';
 import { Sparkles, Lock, KeyRound, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function Home() {
@@ -88,12 +90,14 @@ export default function Home() {
         return <LeadsTab />;
       case 'video':
         return <VideoTab />;
+      case 'voicekit':
+        return <VoiceKitTab />;
       case 'inbox':
         return <InboxTab />;
       case 'analytics':
         return <AnalyticsTab />;
       case 'settings':
-        return <SettingsTab />;
+        return <SettingsShell />;
       default:
         return <AnalyticsTab />;
     }

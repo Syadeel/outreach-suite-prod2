@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Video, Upload, Copy, CheckCircle, Link as LinkIcon, Trash2, ExternalLink, Settings, Eye, RefreshCw, Wand2 } from 'lucide-react';
+import { Video, Upload, Copy, CheckCircle, Link as LinkIcon, Trash2, ExternalLink, Settings, Eye, RefreshCw, Wand2, Activity, XCircle } from 'lucide-react';
 
 const ensureHttpPrefix = (url: string): string => {
   const trimmed = url.trim();
@@ -16,6 +16,18 @@ export default function VideoTab() {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+
+  // VK Job Logs state
+  const [vkJobs, setVkJobs] = useState<any[]>([]);
+  const [vkJobsLoading, setVkJobsLoading] = useState(false);
+
+  // VK Generation state
+  const [vkGenerating, setVkGenerating] = useState(false);
+  const [vkStatus, setVkStatus] = useState('');
+  const [selectedLeadId, setSelectedLeadId] = useState('');
+  const [vkTemplatePath, setVkTemplatePath] = useState(
+    'F:\\OpenWork\\projects\\voicekit\\input\\template.mp4'
+  );
 
   // Upload form
   const [title, setTitle] = useState('');
@@ -34,6 +46,7 @@ export default function VideoTab() {
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaBlob, setMediaBlob] = useState<Blob | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [showUploader, setShowUploader] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedGifId, setCopiedGifId] = useState<string | null>(null);
@@ -372,6 +385,88 @@ export default function VideoTab() {
         </div>
       )}
 
+      {/* VoiceKit Generation */}
+      <div className="glass-panel rounded-2xl border border-slate-800/60 p-6 space-y-4">
+        <h3 className="text-sm font-bold text-heading flex items-center gap-2">
+          <Wand2 className="w-4 h-4 text-amber-400" />
+          Generate with VoiceKit
+        </h3>
+        <p className="text-[10px] text-slate-500">Create a personalized AI video for a lead using voice cloning + lip-sync</p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Select Lead</label>
+            <select
+              value={selectedLeadId}
+              onChange={(e) => setSelectedLeadId(e.target.value)}
+              className="w-full glass-input rounded-lg px-3 py-2 text-xs text-heading"
+            >
+              <option value="">— Select lead —</option>
+              {leads.map((l: any) => (
+                <option key={l.id} value={l.id}>{l.first_name} {l.last_name} ({l.company})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Template Video Path</label>
+            <input value={vkTemplatePath} onChange={(e) => setVkTemplatePath(e.target.value)}
+              className="w-full glass-input rounded-lg px-3 py-2 text-xs text-heading font-mono" />
+          </div>
+        </div>
+
+        {vkStatus && (
+          <div className="text-xs text-slate-400 bg-slate-900/50 rounded-lg px-3 py-2">{vkStatus}</div>
+        )}
+
+        <button
+          onClick={async () => {
+            if (!selectedLeadId) { alert('Select a lead first'); return; }
+            setVkGenerating(true);
+            setVkStatus('Starting VoiceKit generation...');
+            try {
+              const lead = leads.find((l: any) => l.id === selectedLeadId);
+              if (!lead) throw new Error('Lead not found');
+
+              setVkStatus('Generating video (this takes 1-5 min)...');
+
+              const res = await fetch('/api/vk/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  firstName: lead.first_name || '',
+                  company: lead.company || '',
+                  leadId: lead.id,
+                  voiceSample: lead.voice_sample || '',
+                  templateVideo: vkTemplatePath,
+                }),
+              });
+
+              if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || `HTTP ${res.status}`);
+              }
+
+              const result = await res.json();
+              setVkStatus(`Done! Video: ${result.videoUrl}`);
+              fetchRecordings();
+              setTimeout(() => setVkStatus(''), 5000);
+            } catch (err: any) {
+              setVkStatus(`Error: ${err.message}`);
+            } finally {
+              setVkGenerating(false);
+            }
+          }}
+          disabled={vkGenerating || !selectedLeadId}
+          className="w-full py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+        >
+          {vkGenerating ? (
+            <><RefreshCw className="w-4 h-4 animate-spin" /> Generating...</>
+          ) : (
+            <><Wand2 className="w-4 h-4" /> Generate with VoiceKit</>
+          )}
+        </button>
+      </div>
+
       {/* Video Library */}
       <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
         <div className="p-4 border-b border-slate-800/60 flex justify-between items-center">
@@ -395,12 +490,17 @@ export default function VideoTab() {
               <div key={video.id} className="p-4 hover:bg-slate-800/20 transition-colors">
                 <div className="flex gap-4">
                   {/* Thumbnail */}
-                  <div className="w-32 h-20 rounded-lg overflow-hidden bg-slate-900 shrink-0 relative group">
+                  <div className="w-32 h-20 rounded-lg overflow-hidden bg-slate-900 shrink-0 relative group cursor-pointer"
+                    onClick={() => setPlayingVideo(video.video_url)}>
                     <video src={video.video_url} className="w-full h-full object-cover" />
-                    <a href={`/landing/${video.id}`} target="_blank"
-                      className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Eye className="w-5 h-5 text-heading" />
-                    </a>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-black/60 flex items-center justify-center">
+                        <div className="w-0 h-0 border-t-[6px] border-b-[6px] border-l-[10px] border-t-transparent border-b-transparent border-l-white ml-0.5"></div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Info */}
@@ -534,6 +634,88 @@ export default function VideoTab() {
           </div>
         </div>
       )}
+
+      {/* Video Player Modal */}
+      {playingVideo && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setPlayingVideo(null)}>
+          <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPlayingVideo(null)}
+              className="absolute -top-10 right-0 text-slate-400 hover:text-white text-sm font-bold"
+            >
+              Close [X]
+            </button>
+            <video src={playingVideo} controls autoPlay className="w-full rounded-xl shadow-2xl" />
+          </div>
+        </div>
+      )}
+
+      {/* VK Job Logs */}
+      <div className="glass-panel rounded-2xl border border-slate-800/60 p-5 space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-indigo-400" />
+            <h3 className="text-md font-bold text-heading">VoiceKit Job Logs</h3>
+            <span className="text-[10px] text-slate-500">(last 24h)</span>
+          </div>
+          <button
+            onClick={async () => {
+              setVkJobsLoading(true);
+              try {
+                const res = await fetch('/api/vk/jobs');
+                if (res.ok) {
+                  const data = await res.json();
+                  setVkJobs(data.jobs || []);
+                }
+              } catch {
+                // silent
+              }
+              setVkJobsLoading(false);
+            }}
+            className="p-2 text-slate-500 hover:text-indigo-400 border border-slate-800 hover:border-indigo-500/40 rounded-lg transition-all"
+            title="Refresh VK job logs"
+          >
+            <RefreshCw className={`w-4 h-4 ${vkJobsLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {vkJobs.length === 0 ? (
+          <div className="text-center py-6 text-slate-500 text-xs">
+            No VK jobs recorded yet. Jobs appear here when VoiceKit generates videos.
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {vkJobs.map((job: any, idx: number) => (
+              <div key={idx} className="flex items-center justify-between bg-slate-950/40 rounded-lg px-3 py-2 border border-slate-900/60">
+                <div className="flex items-center gap-3">
+                  {job.phase === 'done' ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : job.phase === 'failed' ? (
+                    <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                  ) : job.phase === 'generating' ? (
+                    <RefreshCw className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
+                  ) : (
+                    <Activity className="w-3.5 h-3.5 text-slate-500" />
+                  )}
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200">
+                      {job.firstName || 'Lead'} @ {job.company || 'N/A'}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      Phase: <span className="font-bold text-slate-400">{job.phase}</span>
+                      {job.retryCount > 0 && ` · Retry ${job.retryCount}/3`}
+                      {job.error && ` · Error: ${job.error.slice(0, 60)}`}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-600 font-mono">
+                  {job.updatedAt ? new Date(job.updatedAt).toLocaleTimeString() : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

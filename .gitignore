@@ -37,3 +37,15 @@ yarn-error.log*
 next-env.d.ts
 
 scraped_leads.csv
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temp files
+tmp/
+
+# Dotfiles (secret env files only)
+.env
+.env*.local
+.env.production

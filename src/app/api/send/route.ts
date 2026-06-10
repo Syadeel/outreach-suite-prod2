@@ -89,9 +89,136 @@ export async function POST(req: NextRequest) {
     emailSubject = replaceTags(emailSubject);
     emailBody = replaceTags(emailBody);
 
-    // 4. Inject VideoSpark personalized landing page + GIF if specified in campaign steps
+    // 4. Two-phase VK video generation (async, survives Next.js 30s timeout)
+    let videoId = currentStep.videoId;
+
+    if (!videoId && currentStep.useVoiceKit) {
+      const { startVkGeneration, checkVkJob, collectVkResult } = await import('@/lib/voicekit-connector');
+      const { getVkJob, upsertVkJob } = await import('@/lib/vk-job-store');
+
+      const stepIdx = campaignLead.current_step_index;
+      const leadId = lead.id;
+      const existingJob = getVkJob(leadId, stepIdx);
+
+      if (existingJob && existingJob.phase === 'generating') {
+        // ── Phase 2: Check existing job ──
+        const status = await checkVkJob(existingJob.jobId);
+
+        if (status.status === 'done' && status.localPath) {
+          // Video ready — upload to Cloudinary + save to Supabase
+          try {
+            const newVideoId = await collectVkResult(
+              status.localPath,
+              status.firstName || lead.first_name || '',
+              status.company || lead.company || '',
+              leadId
+            );
+            videoId = newVideoId;
+
+            // Cache videoId on the step so we don't regenerate
+            steps[stepIdx].videoId = videoId;
+            await supabaseAdmin.from('campaigns').update({ steps }).eq('id', campaign.id);
+
+            upsertVkJob(leadId, stepIdx, { phase: 'done', videoId });
+
+            console.log(`VK done for lead ${leadId}: video ${newVideoId}`);
+          } catch (collectErr: any) {
+            console.error('VK collect failed:', collectErr);
+            upsertVkJob(leadId, stepIdx, { phase: 'failed', error: collectErr.message });
+            // Fall through — email will send without video
+          }
+        } else if (status.status === 'error' || status.status === 'unknown') {
+          // Job failed — retry or give up
+          const retryCount = (existingJob.retryCount || 0) + 1;
+          if (retryCount <= 3) {
+            // Resubmit
+            console.log(`VK retry ${retryCount}/3 for lead ${leadId}...`);
+            const { jobId: newJobId } = await startVkGeneration({
+              firstName: lead.first_name || '',
+              company: lead.company || '',
+              leadId,
+              voiceSample: lead.voice_sample || '',
+              script: currentStep.vk_script || '',
+            });
+            upsertVkJob(leadId, stepIdx, {
+              jobId: newJobId,
+              phase: 'generating',
+              retryCount,
+              error: undefined,
+            });
+            // Reschedule
+            const retryTime = new Date(Date.now() + 10 * 60 * 1000);
+            await supabaseAdmin
+              .from('campaign_leads')
+              .update({ next_send_time: retryTime.toISOString() })
+              .eq('id', campaignLeadId);
+
+            return NextResponse.json({
+              status: 'vk_retry',
+              message: `VK retry ${retryCount}/3 scheduled for ${retryTime.toISOString()}`,
+            });
+          } else {
+            // Max retries exceeded — send without video
+            console.warn(`VK failed after 3 retries for lead ${leadId}: ${status.error}`);
+            upsertVkJob(leadId, stepIdx, { phase: 'failed', error: status.error || 'Max retries exceeded' });
+          }
+        } else {
+          // Still running — reschedule check in 10 minutes
+          const checkTime = new Date(Date.now() + 10 * 60 * 1000);
+          await supabaseAdmin
+            .from('campaign_leads')
+            .update({ next_send_time: checkTime.toISOString() })
+            .eq('id', campaignLeadId);
+
+          return NextResponse.json({
+            status: 'vk_pending',
+            message: `VK still running, recheck at ${checkTime.toISOString()}`,
+          });
+        }
+      } else if (existingJob && existingJob.phase === 'failed') {
+        // Already failed after retries — skip VK, send without video
+        console.warn(`VK previously failed for lead ${leadId}, sending without video`);
+      } else {
+        // ── Phase 1: Start new VK generation ──
+        const vkScript = currentStep.vk_script ||
+          `Hey ${lead.first_name || ''}, check out ${lead.company || 'our platform'}!`;
+
+        try {
+          const { jobId } = await startVkGeneration({
+            firstName: lead.first_name || '',
+            company: lead.company || '',
+            leadId,
+            voiceSample: lead.voice_sample || '',
+            script: vkScript,
+          });
+
+          // Save job state and reschedule for 10 minutes later
+          upsertVkJob(leadId, stepIdx, {
+            jobId,
+            phase: 'generating',
+            retryCount: 0,
+          });
+
+          const checkTime = new Date(Date.now() + 10 * 60 * 1000);
+          await supabaseAdmin
+            .from('campaign_leads')
+            .update({ next_send_time: checkTime.toISOString() })
+            .eq('id', campaignLeadId);
+
+          console.log(`VK started for lead ${leadId}: job=${jobId}, recheck at ${checkTime.toISOString()}`);
+          return NextResponse.json({
+            status: 'vk_started',
+            message: `VK generation started for ${lead.first_name || ''} @ ${lead.company || ''}`,
+          });
+        } catch (vkErr: any) {
+          console.error('VK start failed (sending without video):', vkErr);
+          // Failed to start — send email without video
+        }
+      }
+    }
+
+    // 5. Inject VideoSpark personalized landing page + GIF if video is available
     // Step format can store videoId inside config: e.g. currentStep.videoId
-    const videoId = currentStep.videoId;
     if (videoId) {
       const { data: videoRecord } = await supabaseAdmin
         .from('video_recordings')

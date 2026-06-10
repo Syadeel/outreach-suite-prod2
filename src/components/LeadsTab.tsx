@@ -80,6 +80,14 @@ export default function LeadsTab() {
   const [company, setCompany] = useState('');
   const [website, setWebsite] = useState('');
 
+  // Voice sample state
+  const [voiceSample, setVoiceSample] = useState('');
+  const [voiceUploading, setVoiceUploading] = useState(false);
+  const [voiceUploadStatus, setVoiceUploadStatus] = useState('');
+
+  // Voice sample file input ref
+  const voiceInputRef = useRef<HTMLInputElement>(null);
+
   // CSV & Verification State
   const [csvLoading, setCsvLoading] = useState(false);
   const [csvProgress, setCsvProgress] = useState('');
@@ -88,6 +96,7 @@ export default function LeadsTab() {
 
   useEffect(() => {
     fetchLeads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchLeads = async () => {
@@ -123,6 +132,7 @@ export default function LeadsTab() {
         company: company.trim(),
         website: formattedWebsite,
         stage: 'new',
+        voice_sample: voiceSample.trim() || null,
         custom_fields: { 
           logo_url: logoUrl,
           full_name: computedFullName
@@ -135,6 +145,7 @@ export default function LeadsTab() {
         setLastName('');
         setCompany('');
         setWebsite('');
+        setVoiceSample('');
         setShowAddForm(false);
         fetchLeads();
       } else {
@@ -598,6 +609,54 @@ export default function LeadsTab() {
                 className="w-full px-3 py-2 rounded-lg glass-input text-sm"
               />
             </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs text-slate-400 font-semibold mb-1 uppercase tracking-wider">Voice Sample (for VK video)</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  ref={voiceInputRef}
+                  type="file"
+                  accept=".mp3,.wav,audio/mpeg,audio/wav"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setVoiceUploading(true);
+                    setVoiceUploadStatus('Uploading...');
+                    try {
+                      const form = new FormData();
+                      form.append('file', file);
+                      const res = await fetch('/api/vk/upload-voice', { method: 'POST', body: form });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error);
+                      setVoiceSample(data.path);
+                      setVoiceUploadStatus(`Uploaded: ${data.fileName} (${data.sizeMb} MB)`);
+                      setTimeout(() => setVoiceUploadStatus(''), 4000);
+                    } catch (err: any) {
+                      setVoiceUploadStatus(`Error: ${err.message}`);
+                    }
+                    setVoiceUploading(false);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => voiceInputRef.current?.click()}
+                  disabled={voiceUploading}
+                  className="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-bold rounded-lg disabled:opacity-50 shrink-0"
+                >
+                  {voiceUploading ? 'Uploading...' : voiceSample ? 'Replace Voice File' : 'Choose Voice File'}
+                </button>
+                {voiceSample && (
+                  <span className="text-[10px] text-emerald-400 font-mono truncate max-w-[200px]" title={voiceSample}>
+                    ✓ {voiceSample.split('\\').pop()}
+                  </span>
+                )}
+                {voiceUploadStatus && !voiceSample && (
+                  <span className="text-[10px] text-slate-400">{voiceUploadStatus}</span>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1">Upload an .mp3 or .wav file for voice cloning. Required for VoiceKit personalized video.</p>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <button
@@ -723,6 +782,7 @@ export default function LeadsTab() {
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Website</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Outreach Quality</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Lead Enrichment</th>
+                  <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Voice</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Stage</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider text-right">Actions</th>
                 </tr>
@@ -814,6 +874,58 @@ export default function LeadsTab() {
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-rose-500/10 text-rose-400 border-rose-500/20" title={notes}>
                             ⚠ Bad (Bounce)
                           </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-1">
+                        {lead.voice_sample ? (
+                          <div className="flex items-center gap-1">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 cursor-default" title={lead.voice_sample}>
+                              🎤 Ready
+                            </span>
+                            <button
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = '.mp3,.wav,audio/mpeg,audio/wav';
+                                input.onchange = async () => {
+                                  const file = input.files?.[0];
+                                  if (!file) return;
+                                  const form = new FormData();
+                                  form.append('file', file);
+                                  form.append('leadId', lead.id);
+                                  const res = await fetch('/api/vk/upload-voice', { method: 'POST', body: form });
+                                  if (res.ok) fetchLeads();
+                                };
+                                input.click();
+                              }}
+                              className="text-[9px] text-slate-600 hover:text-indigo-400 ml-0.5"
+                              title="Replace voice sample"
+                            >
+                              ↻
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = '.mp3,.wav,audio/mpeg,audio/wav';
+                              input.onchange = async () => {
+                                const file = input.files?.[0];
+                                if (!file) return;
+                                const form = new FormData();
+                                form.append('file', file);
+                                form.append('leadId', lead.id);
+                                const res = await fetch('/api/vk/upload-voice', { method: 'POST', body: form });
+                                if (res.ok) fetchLeads();
+                              };
+                              input.click();
+                            }}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-slate-500/10 text-slate-500 border-slate-500/20 hover:bg-indigo-500/10 hover:text-indigo-400 hover:border-indigo-500/30 transition-all cursor-pointer"
+                            title="Upload a .mp3 voice sample for VK cloning"
+                          >
+                            + Upload Voice
+                          </button>
                         )}
                       </td>
                       <td className="py-1.5 px-1">

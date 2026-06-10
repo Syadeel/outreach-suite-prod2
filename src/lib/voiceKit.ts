@@ -13,7 +13,7 @@ export async function generateVideoForLead(lead: any): Promise<string> {
   const script = `Hey ${lead.first_name || ''}, I wanted to reach out about ${lead.company || ''}...`;
 
   // Path to the VoiceKit `run.py` entry point
-  const runPy = path.resolve(__dirname, '..', '..', '..', '..', 'lipkit', 'run.py');
+  const runPy = path.resolve(__dirname, '..', '..', '..', '..', 'voicekit', 'run.py');
 
   return new Promise<string>((resolve, reject) => {
     execFile('python', [runPy, '--script', script], { cwd: path.dirname(runPy) }, async (error, stdout, stderr) => {
