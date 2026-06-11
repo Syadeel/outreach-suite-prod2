@@ -10,7 +10,7 @@
  *   { videoUrl, gifUrl, duration }
  */
 
-export const maxDuration = 600; // 10 min timeout for ML pipeline
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
