@@ -1,13 +1,22 @@
--- V2 Migration: Add avatar columns to leads + landing_page_templates table
+-- V2 Migration: Complete schema for V2 AI Avatar pipeline + template system
+-- Run this in Supabase SQL Editor AFTER the existing supabase_v2_migration.sql
 
 -- 1. Add columns to leads table for V2 avatar pipeline
+-- (some may already exist from supabase_v2_migration.sql — IF NOT EXISTS handles it)
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS email_gif_url TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS personalized_landing_page_url TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS v2_avatar_voice_url TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS v2_avatar_face_url TEXT;
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS v2_status TEXT DEFAULT 'none';
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS v2_video_url TEXT;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS v2_generated_at TIMESTAMP WITH TIME ZONE;
+
+-- Ensure v2_status exists (previous migration had DEFAULT 'pending', this is fine)
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS v2_status TEXT DEFAULT 'none';
+
+-- Note: existing columns from previous V2 migration that are still used:
+--   leads.dynamic_gif_url  → maps to old system (kept for backward compat)
+--   leads.lp_url           → maps to old system (kept for backward compat)
+--   leads.video_url        → maps to old system (kept for backward compat)
 
 -- 2. Create landing_page_templates table for editable sections
 CREATE TABLE IF NOT EXISTS landing_page_templates (
@@ -82,7 +91,10 @@ INSERT INTO landing_page_templates (
     'Schedule a time to chat'
 ) ON CONFLICT DO NOTHING;
 
--- 4. Update video_recordings with template support
+-- 4. Update video_recordings with template support + V2 columns
+-- (lead_id and landing_page_url may already exist from supabase_v2_migration.sql)
+ALTER TABLE video_recordings ADD COLUMN IF NOT EXISTS lead_id UUID REFERENCES leads(id) ON DELETE SET NULL;
+ALTER TABLE video_recordings ADD COLUMN IF NOT EXISTS landing_page_url TEXT;
 ALTER TABLE video_recordings ADD COLUMN IF NOT EXISTS landing_page_template_id UUID REFERENCES landing_page_templates(id) ON DELETE SET NULL;
 ALTER TABLE video_recordings ADD COLUMN IF NOT EXISTS brand_title TEXT;
 ALTER TABLE video_recordings ADD COLUMN IF NOT EXISTS brand_subtitle TEXT;

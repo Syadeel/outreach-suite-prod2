@@ -7,8 +7,6 @@ import { promisify } from 'util';
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { generateLandingPage } from '@/lib/landingPage';
-
 export const maxDuration = 300;
 
 const execFileAsync = promisify(execFile);
@@ -231,48 +229,45 @@ print("FETCHED")
       .replace('/video/upload/', '/video/upload/w_400,c_scale,f_gif,q_auto,du_3,e_loop/')
       .replace(/\.[^/.]+$/, '.gif');
 
-    // 9. Generate landing page
-    const calendarUrl = process.env.CALENDLY_URL || process.env.NEXT_PUBLIC_CALENDLY_URL || '#';
-    const lpHtml = generateLandingPage(
-      lead.first_name || '',
-      lead.last_name || '',
-      lead.company || '',
-      lead.website || '',
-      videoUrl,
-      gifUrl,
-      calendarUrl,
-    );
+    // 9. Save video_recordings first so we get an ID for the landing page
+    const { data: videoRec, error: videoRecErr } = await supabase
+      .from('video_recordings')
+      .insert({
+        lead_id: leadId,
+        video_url: videoUrl,
+        gif_url: gifUrl,
+        title: `V2 - ${lead.first_name || ''} ${lead.last_name || ''}`,
+        cta_text: 'Book a Call',
+        brand_color: '#34d399',
+        brand_title: 'Capital Acquisition',
+      })
+      .select()
+      .single();
 
-    const lpPath = path.join(TEMP_DIR, `lp_${leadId}_${Date.now()}.html`);
-    await writeFile(lpPath, lpHtml);
-    const lpUpload = await cloudinary.uploader.upload(lpPath, {
-      resource_type: 'raw',
-      folder: 'v2_landing_pages',
-    });
-    const lpUrl = lpUpload.secure_url;
-    await unlink(lpPath).catch(() => {});
+    if (videoRecErr) {
+      console.error('[V2] Failed to save video recording:', videoRecErr);
+      // Non-fatal — proceed without video_recording entry
+    }
 
-    // 10. Save to Supabase
+    // 10. Generate landing page URL — use the dynamic Next.js landing page
+    // instead of a static HTML file. This gives us the template system,
+    // calendly fix, scrolling website screenshot, and editable sections.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://os-outreach-suit.vercel.app';
+    const landingPageUrl = videoRec?.id
+      ? `${appUrl}/landing/${videoRec.id}?leadId=${leadId}`
+      : `${appUrl}/landing/placeholder?leadId=${leadId}`;
+
+    // 11. Save to leads table
     await supabase
       .from('leads')
       .update({
         v2_status: 'ready',
         v2_video_url: videoUrl,
-        personalized_landing_page_url: lpUrl,
+        personalized_landing_page_url: landingPageUrl,
         email_gif_url: gifUrl,
         v2_generated_at: new Date().toISOString(),
       })
       .eq('id', leadId);
-
-    await supabase.from('video_recordings').insert({
-      lead_id: leadId,
-      video_url: videoUrl,
-      gif_url: gifUrl,
-      landing_page_url: lpUrl,
-      title: `V2 - ${lead.first_name || ''} ${lead.last_name || ''}`,
-      cta_text: 'Book a Call',
-      brand_color: '#34d399',
-    });
 
     // Cleanup
     await unlink(videoPath).catch(() => {});
@@ -284,7 +279,7 @@ print("FETCHED")
       success: true,
       videoUrl,
       gifUrl,
-      lpUrl,
+      landingPageUrl,
       audioUrl,
       duration: parseFloat(elapsed),
     });
