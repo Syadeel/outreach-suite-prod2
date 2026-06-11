@@ -12,7 +12,7 @@
  * 5. Return video URL
  */
 
-export const maxDuration = 600;
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';

@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { generateLandingPage } from '@/lib/landingPage';
 
-export const maxDuration = 600;
+export const maxDuration = 300;
 
 const execFileAsync = promisify(execFile);
 

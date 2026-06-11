@@ -3,7 +3,7 @@
  * GET /api/v2/cron-dispatch
  * Processes up to 10 pending leads per run
  */
-export const maxDuration = 600;
+export const maxDuration = 300;
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin';
 
