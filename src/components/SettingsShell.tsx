@@ -5,6 +5,8 @@ import VideoTab from './VideoTab';
 import VoiceKitTab from './VoiceKitTab';
 import TemplatesTab from './TemplatesTab';
 import InboxTab from './InboxTab';
+import AccountTab from './AccountTab';
+import AdvancedTab from './AdvancedTab';
 
 const SETTINGS_SECTIONS = [
   { id: 'video', label: 'VideoSpark Recorder' },
@@ -24,20 +26,8 @@ export default function SettingsShell({ onBack }: { onBack?: () => void }) {
       case 'voicekit': return <VoiceKitTab />;
       case 'templates': return <TemplatesTab />;
       case 'inbox': return <InboxTab />;
-      case 'account':
-        return (
-          <div className="glass-panel rounded-2xl border border-slate-800/60 p-6">
-            <h3 className="text-lg font-bold text-heading mb-4">Account Settings</h3>
-            <p className="text-sm text-slate-400">Account configuration coming soon.</p>
-          </div>
-        );
-      case 'advanced':
-        return (
-          <div className="glass-panel rounded-2xl border border-slate-800/60 p-6">
-            <h3 className="text-lg font-bold text-heading mb-4">Advanced Settings</h3>
-            <p className="text-sm text-slate-400">Advanced configuration coming soon.</p>
-          </div>
-        );
+      case 'account': return <AccountTab />;
+      case 'advanced': return <AdvancedTab />;
       default: return <VideoTab />;
     }
   };
