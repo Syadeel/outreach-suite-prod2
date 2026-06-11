@@ -6,6 +6,7 @@ import TemplatesTab from './TemplatesTab';
 import InboxTab from './InboxTab';
 import AccountTab from './AccountTab';
 import AdvancedTab from './AdvancedTab';
+import SecurityTab from './SecurityTab';
 
 const SETTINGS_SECTIONS = [
   { id: 'v2', label: 'V2 AI Avatar' },
@@ -13,6 +14,7 @@ const SETTINGS_SECTIONS = [
   { id: 'inbox', label: 'Unified Inbox' },
   { id: 'account', label: 'Account' },
   { id: 'advanced', label: 'Advanced' },
+  { id: 'security', label: 'Security' },
 ];
 
 export default function SettingsShell({ onBack }: { onBack?: () => void }) {
@@ -25,6 +27,7 @@ export default function SettingsShell({ onBack }: { onBack?: () => void }) {
       case 'inbox': return <InboxTab />;
       case 'account': return <AccountTab />;
       case 'advanced': return <AdvancedTab />;
+      case 'security': return <SecurityTab />;
       default: return <V2Tab />;
     }
   };

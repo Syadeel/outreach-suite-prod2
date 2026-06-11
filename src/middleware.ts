@@ -2,24 +2,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  // If no password is provided in ENV, fallback to a default one.
-  const PASSWORD = process.env.OS_PASSWORD || 'capital123'; 
-  
+  const PASSWORD = process.env.OS_PASSWORD || 'capital123';
   const pathname = req.nextUrl.pathname;
   const host = req.headers.get('host') || '';
 
-  // If user is accessing via voicekit subdomain, rewrite root to the embed page
+  // Voicekit subdomain rewrite
   if (host.includes('voicekit.thecapitalacquisition.com')) {
     if (pathname === '/') {
       return NextResponse.rewrite(new URL('/voicekit-embed', req.url));
     }
   }
-  
-  // Public paths that do not require authentication
+
+  // Public paths
   if (
     pathname === '/' ||
     pathname === '/voicekit-embed' ||
-    pathname.startsWith('/landing') || 
+    pathname.startsWith('/landing') ||
     pathname.startsWith('/api/tracking') ||
     pathname.startsWith('/api/cron') ||
     pathname.startsWith('/api/poll-replies') ||
@@ -28,15 +26,23 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Require HTTP Basic Auth for all other routes
+  // Check session cookie first (fast path)
+  const sessionCookie = req.cookies.get('os_session');
+  if (sessionCookie?.value === 'authenticated') {
+    return NextResponse.next();
+  }
+
+  // Check HTTP Basic Auth against env var
   const basicAuth = req.headers.get('authorization');
-  
   if (basicAuth) {
-    const authValue = basicAuth.split(' ')[1];
-    const [user, pwd] = atob(authValue).split(':');
-    
-    if (pwd === PASSWORD) {
-      return NextResponse.next();
+    try {
+      const authValue = basicAuth.split(' ')[1];
+      const [, pwd] = atob(authValue).split(':');
+      if (pwd === PASSWORD) {
+        return NextResponse.next();
+      }
+    } catch {
+      // Invalid header
     }
   }
 
@@ -50,12 +56,6 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
-}
+};
