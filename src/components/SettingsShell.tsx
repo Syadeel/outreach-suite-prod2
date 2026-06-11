@@ -10,7 +10,7 @@ import SecurityTab from './SecurityTab';
 
 const SETTINGS_SECTIONS = [
   { id: 'v2', label: 'V2 AI Avatar' },
-  { id: 'templates', label: 'Email Templates' },
+  { id: 'templates', label: 'Templates' },
   { id: 'inbox', label: 'Unified Inbox' },
   { id: 'account', label: 'Account' },
   { id: 'advanced', label: 'Advanced' },
