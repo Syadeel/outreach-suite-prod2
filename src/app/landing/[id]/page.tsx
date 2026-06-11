@@ -7,6 +7,8 @@ import {
   Play, Pause, RotateCcw, Volume2, VolumeX,
   ArrowRight, Calendar, Quote, ChevronDown,
 } from 'lucide-react';
+import CalendlyWidget from '@/components/CalendlyWidget';
+import { resolveTemplate, type LandingTemplate, type LeadData } from '@/lib/landingTemplates';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -34,6 +36,8 @@ interface Video {
   calendar_embed_code: string | null;
   brand_title?: string | null;
   brand_subtitle?: string | null;
+  landing_page_template_id?: string | null;
+  website_url?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -55,7 +59,14 @@ function initials(str: string) {
 export default function LandingPage({ params }: { params: { id: string } }) {
   const [lead, setLead] = useState<Lead | null>(null);
   const [video, setVideo] = useState<Video | null>(null);
+  const [template, setTemplate] = useState<LandingTemplate | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Resolve template fields with lead data
+  const resolvedTemplate = useMemo(() => {
+    if (!template) return null
+    return resolveTemplate(template, lead as unknown as LeadData)
+  }, [template, lead])
 
   // video player state
   const [playing, setPlaying] = useState(false);
@@ -93,6 +104,18 @@ export default function LandingPage({ params }: { params: { id: string } }) {
         if (v) {
           setVideo(v as Video);
           if (v.cta_url || v.calendar_embed_code) setCtaVisible(true);
+
+          // Fetch template if video has one
+          if (v.landing_page_template_id) {
+            const { data: t } = await supabase
+              .from('landing_page_templates')
+              .select('*')
+              .eq('id', v.landing_page_template_id)
+              .single()
+            if (!cancelled && t) {
+              setTemplate(t as LandingTemplate)
+            }
+          }
         }
 
         // lead
@@ -200,19 +223,27 @@ export default function LandingPage({ params }: { params: { id: string } }) {
     el.play(); setPlaying(true);
   };
 
+  /* ---------- template helper ---------- */
+  const tpl = (field: string, fallback: string = '') => {
+    if (resolvedTemplate && resolvedTemplate[field]) return resolvedTemplate[field]
+    return fallback
+  }
+
   /* ---------- derived ---------- */
   const prospectName = lead?.first_name || lead?.email?.split('@')[0] || 'there';
-  const brandColor = video?.brand_color || '#4F46E5';
+  const brandColor = tpl('brand_color', video?.brand_color || '#4F46E5');
   const targetWebsite = lead?.website || '';
   const { badge: badgeText, heading: titleHeading } = useMemo(
     () => extractBadges(video?.title || ''), [video?.title]
   );
-  const headingText = titleHeading || `Hey ${prospectName} 👋`;
-  const bodyText = video?.cta_description
-    || `I put together this personalized video for you${lead?.company ? ` and the team at ${lead.company}` : ''}. I think you&apos;ll find the first 30 seconds especially relevant.`;
+  const headingText = tpl('hero_heading', titleHeading || `Hey ${prospectName} 👋`);
+  const bodyText = tpl('hero_body',
+    video?.cta_description
+      || `I put together this personalized video for you${lead?.company ? ` and the team at ${lead.company}` : ''}. I think you&apos;ll find the first 30 seconds especially relevant.`
+  );
 
   /* ---------- brand ---------- */
-  const brandTitle = video?.brand_title || 'Capital Acquisition';
+  const brandTitle = tpl('brand_title', video?.brand_title || 'Capital Acquisition');
   const brandSubtitle = video?.brand_subtitle || 'Outreach Suite';
 
   /* ================================================================ */
@@ -248,8 +279,8 @@ export default function LandingPage({ params }: { params: { id: string } }) {
       <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl border-b" style={{ backgroundColor: 'color-mix(in srgb, var(--landing-bg) 80%, transparent)', borderColor: 'var(--landing-border)' }}>
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {video.brand_logo_url ? (
-              <Image src={video.brand_logo_url!} alt="" width={28} height={28} className="h-7 w-auto rounded-lg" />
+            {(tpl('brand_logo_url') || video.brand_logo_url) ? (
+              <Image src={tpl('brand_logo_url') || video.brand_logo_url!} alt="" width={28} height={28} className="h-7 w-auto rounded-lg" />
             ) : (
               <div className="h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs text-white" style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)` }}>
                 {initials(brandTitle)}
@@ -257,16 +288,16 @@ export default function LandingPage({ params }: { params: { id: string } }) {
             )}
             <span className="text-sm font-semibold text-white/90 tracking-tight">{brandTitle}</span>
           </div>
-          {ctaVisible && video.cta_url && (
+          {ctaVisible && (tpl('cta_url') || video.cta_url) && (
             <a
-              href={video.cta_url}
+              href={tpl('cta_url') || video.cta_url!}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-full text-white transition-all hover:scale-105"
               style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}cc)` }}
             >
               <Calendar className="w-3.5 h-3.5" />
-              Book a Call
+              {tpl('cta_text', video.cta_text || 'Book a Call')}
             </a>
           )}
         </div>
@@ -292,7 +323,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               {/* badge */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest border" style={{ borderColor: `${brandColor}44`, color: brandColor, background: `${brandColor}11` }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: brandColor }} />
-                {badgeText}
+                {tpl('badge_text', badgeText)}
               </div>
 
               {/* h1 */}
@@ -301,9 +332,9 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               </h1>
 
               {/* sub */}
-              {lead?.company && (
+              {(tpl('hero_subheading') || lead?.company) && (
                 <p className="text-lg md:text-xl text-white/50 font-medium">
-                  Tailored for {lead.company}
+                  {tpl('hero_subheading', lead?.company ? `Tailored for ${lead.company}` : '')}
                 </p>
               )}
 
@@ -326,15 +357,15 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               </div>
 
               {/* CTA — on mobile, after copy */}
-              {ctaVisible && video.cta_url && (
+              {ctaVisible && (tpl('cta_url') || video.cta_url) && (
                 <a
-                  href={video.cta_url}
+                  href={tpl('cta_url') || video.cta_url!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex lg:hidden items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 rounded-2xl text-white font-bold text-base transition-all hover:scale-[1.03] active:scale-[0.97] shadow-2xl"
                   style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}cc)`, boxShadow: `0 20px 60px ${brandColor}33` }}
                 >
-                  {video.cta_text || 'Book a Call'}
+                  {tpl('cta_text', video.cta_text || 'Book a Call')}
                   <ArrowRight className="w-4 h-4" />
                 </a>
               )}
@@ -472,16 +503,16 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               </div>
 
               {/* CTA below video (desktop) */}
-              {ctaVisible && video.cta_url && (
+              {ctaVisible && (tpl('cta_url') || video.cta_url) && (
                 <div className="hidden lg:flex mt-6 gap-3">
                   <a
-                    href={video.cta_url}
+                    href={tpl('cta_url') || video.cta_url!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                     style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}cc)`, boxShadow: `0 12px 40px ${brandColor}22` }}
                   >
-                    {video.cta_text || 'Book a Call'}
+                    {tpl('cta_text', video.cta_text || 'Book a Call')}
                     <ArrowRight className="w-4 h-4" />
                   </a>
                   <div className="w-px bg-white/[0.06]" />
@@ -503,9 +534,9 @@ export default function LandingPage({ params }: { params: { id: string } }) {
       {/* ================================================================ */}
       <section className="relative border-y border-white/[0.05] bg-white/[0.02]">
         <div className="max-w-7xl mx-auto px-6 py-8 text-center">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-white/25 font-semibold mb-5">Trusted by growth teams everywhere</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/25 font-semibold mb-5">{tpl('social_proof_heading', 'Trusted by growth teams everywhere')}</p>
           <div className="flex items-center justify-center gap-8 md:gap-14 flex-wrap opacity-30">
-            {['Partner Co.', 'ScaleUp', 'GrowFast', 'NextLevel', 'VentureX'].map(name => (
+            {(tpl('social_proof_logos') ? tpl('social_proof_logos').split(',') : ['Partner Co.', 'ScaleUp', 'GrowFast', 'NextLevel', 'VentureX']).map((name: string) => (
               <span key={name} className="text-sm md:text-base font-bold text-white tracking-tight">{name}</span>
             ))}
           </div>
@@ -524,11 +555,11 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               Why this matters
             </div>
             <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
-              This isn&apos;t a generic pitch{lead?.company ? `, ${prospectName}` : ''}.<br />
-              <span className="text-white/40">It was built specifically for {lead?.company ? `what you&apos;re building at ${lead.company}` : 'your business'}.</span>
+              {tpl('why_matters_heading', `This isn&apos;t a generic pitch${lead?.company ? `, ${prospectName}` : ''}.`)}<br />
+              <span className="text-white/40">{tpl('why_matters_subheading', lead?.company ? `It was built specifically for what you&apos;re building at ${lead.company}` : 'It was built specifically for your business.')}</span>
             </h2>
             <p className="text-white/35 text-sm leading-relaxed max-w-lg mx-auto">
-              We researched your company, identified the key opportunity, and recorded this video so you can see the fit in under 60 seconds.
+              {tpl('why_matters_body', 'We researched your company, identified the key opportunity, and recorded this video so you can see the fit in under 60 seconds.')}
             </p>
           </div>
         </div>
@@ -563,30 +594,30 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               </div>
 
               {/* calendar embed */}
-              {video.calendar_embed_code && (
+              {(video.calendar_embed_code || tpl('calendar_embed_code')) && (
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
                   <div className="px-6 py-4 border-b border-white/[0.05] flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full" style={{ background: brandColor }} />
-                    <span className="text-xs font-bold uppercase tracking-widest text-white/50">Schedule a time to chat</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-white/50">
+                      {tpl('calendar_heading', 'Schedule a time to chat')}
+                    </span>
                   </div>
-                  <div
-                    className="p-4 md:p-6"
-                    dangerouslySetInnerHTML={{ __html: video.calendar_embed_code }}
-                    style={{ colorScheme: 'dark' } as React.CSSProperties}
-                  />
+                  <div className="p-4 md:p-6">
+                    <CalendlyWidget embedCode={video.calendar_embed_code || tpl('calendar_embed_code') || null} />
+                  </div>
                 </div>
               )}
 
-              {/* fallback CTA button */}
-              {video.cta_url && !video.calendar_embed_code && (
+                      {/* fallback CTA button */}
+              {(tpl('cta_url') || video.cta_url) && !(video.calendar_embed_code || tpl('calendar_embed_code')) && (
                 <a
-                  href={video.cta_url}
+                  href={tpl('cta_url') || video.cta_url!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-white font-bold text-base transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl"
                   style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}cc)`, boxShadow: `0 20px 60px ${brandColor}33` }}
                 >
-                  {video.cta_text || 'Book a Call'}
+                  {tpl('cta_text', video.cta_text || 'Book a Call')}
                   <ArrowRight className="w-4 h-4" />
                 </a>
               )}
@@ -602,16 +633,16 @@ export default function LandingPage({ params }: { params: { id: string } }) {
       <footer className="border-t border-white/[0.04]">
         <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            {video.brand_logo_url ? (
-              <Image src={video.brand_logo_url!} alt="" width={20} height={20} className="h-5 w-auto rounded opacity-40" />
+            {(tpl('brand_logo_url') || video.brand_logo_url) ? (
+              <Image src={tpl('brand_logo_url') || video.brand_logo_url!} alt="" width={20} height={20} className="h-5 w-auto rounded opacity-40" />
             ) : (
               <div className="h-5 w-5 rounded flex items-center justify-center text-[7px] font-bold text-white/40" style={{ background: brandColor }}>
                 {initials(brandTitle)}
               </div>
             )}
-            <span className="text-xs text-white/25">© {new Date().getFullYear()} {brandTitle}. All rights reserved.</span>
+            <span className="text-xs text-white/25">{tpl('footer_text', `© ${new Date().getFullYear()} ${brandTitle}. All rights reserved.`)}</span>
           </div>
-          <span className="text-[10px] text-white/15 tracking-wide uppercase">Powered by {brandTitle}</span>
+          <span className="text-[10px] text-white/15 tracking-wide uppercase">{tpl('footer_powered_by', `Powered by ${brandTitle}`)}</span>
         </div>
       </footer>
 
@@ -633,7 +664,8 @@ export default function LandingPage({ params }: { params: { id: string } }) {
         /* — calendly overrides for dark mode — */
         .calend-embed iframe,
         .calendly-inline-widget,
-        .calendly-overlay iframe {
+        .calendly-overlay iframe,
+        .calendly-widget-container iframe {
           width: 100% !important;
           min-height: 420px !important;
           border: none !important;
@@ -642,9 +674,13 @@ export default function LandingPage({ params }: { params: { id: string } }) {
         }
         body.light .landing-page .calend-embed iframe,
         body.light .landing-page .calendly-inline-widget,
-        body.light .landing-page .calendly-overlay iframe {
+        body.light .landing-page .calendly-overlay iframe,
+        body.light .landing-page .calendly-widget-container iframe {
           filter: none;
         }
+
+        /* — custom CSS from template — */
+        ${tpl('custom_css', '')}
 
         /* — animate pulse for badge dot — */
         @keyframes pulse {

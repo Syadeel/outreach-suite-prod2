@@ -31,6 +31,9 @@ const TEMP_DIR = path.join(process.cwd(), 'tmp');
 const FACE_VIDEO_URL =
   process.env.FACE_VIDEO_URL ||
   'https://res.cloudinary.com/dacq1vyxp/video/upload/v1781118782/v2_face/video_1781118774.mp4';
+const VOICE_REF_URL =
+  process.env.VOICE_REF_URL ||
+  'https://res.cloudinary.com/dacq1vyxp/video/upload/v1781112795/v2_voice_ref/voice_ref_optimized_30s.wav';
 const VOICE_CLONE_URL =
   process.env.NEXT_PUBLIC_APP_URL
     ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v2/voice-clone`
@@ -54,6 +57,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing leadId' }, { status: 400 });
     }
 
+    // Accept custom script, faceVideoUrl, and voiceRefUrl from request
+    const customScript = body.script || '';
+    const customFaceVideoUrl = body.faceVideoUrl || '';
+    const customVoiceRefUrl = body.voiceRefUrl || '';
+
     // 1. Fetch lead
     const supabase = getSupabase();
     const { data: lead, error: leadErr } = await supabase
@@ -71,16 +79,26 @@ export async function POST(req: NextRequest) {
     // 2. Generate personalized script
     const firstName = lead.first_name || lead.email?.split('@')[0] || 'there';
     const company = lead.company || 'your company';
-    const script = `Hey ${firstName} from ${company}, I built a system that helps businesses like yours grow with automated AI video outreach. No more recording hundreds of videos. Just record once and we handle the rest. Let me show you how it works.`;
+    const script = (customScript || `Hey {{first_name}} from {{company}}, I built a system that helps businesses like yours grow with automated AI video outreach. Let me show you how it works.`)
+      .replace(/\{\{first_name\}\}/g, firstName)
+      .replace(/\{\{company\}\}/g, company);
+
+    // Determine face video and voice ref URLs (custom > env hardcoded)
+    const currentFaceVideoUrl = customFaceVideoUrl || FACE_VIDEO_URL;
+    const currentVoiceRefUrl = customVoiceRefUrl || VOICE_REF_URL;
 
     // 3. Generate voice clone audio via Qwen3-TTS
     console.log(`[V2] Generating voice clone for lead ${leadId}...`);
+    const vcUrl = process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v2/voice-clone`
+      : 'http://localhost:3000/api/v2/voice-clone';
+    
     const voiceCloneRes = await fetch(
-      VOICE_CLONE_URL,
+      vcUrl,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: script }),
+        body: JSON.stringify({ text: script, ref_audio_url: currentVoiceRefUrl }),
       },
     );
 
@@ -102,7 +120,7 @@ export async function POST(req: NextRequest) {
 import modal
 f = modal.Function.from_name("${LATENTSYNC_APP}", "run_inference")
 call = f.spawn(
-    video_url="${FACE_VIDEO_URL}",
+    video_url="${currentFaceVideoUrl}",
     audio_url="${audioUrl}",
     inference_steps=25,
     guidance_scale=1.5,
@@ -239,8 +257,10 @@ print("FETCHED")
       .from('leads')
       .update({
         v2_status: 'ready',
-        lp_url: lpUrl,
-        dynamic_gif_url: gifUrl,
+        v2_video_url: videoUrl,
+        personalized_landing_page_url: lpUrl,
+        email_gif_url: gifUrl,
+        v2_generated_at: new Date().toISOString(),
       })
       .eq('id', leadId);
 

@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import VideoTab from './VideoTab';
-import VoiceKitTab from './VoiceKitTab';
+import V2Tab from './V2Tab';
 import TemplatesTab from './TemplatesTab';
 import InboxTab from './InboxTab';
 import AccountTab from './AccountTab';
 import AdvancedTab from './AdvancedTab';
 
 const SETTINGS_SECTIONS = [
-  { id: 'video', label: 'VideoSpark Recorder' },
-  { id: 'voicekit', label: 'VoiceKit' },
+  { id: 'v2', label: 'V2 AI Avatar' },
   { id: 'templates', label: 'Email Templates' },
   { id: 'inbox', label: 'Unified Inbox' },
   { id: 'account', label: 'Account' },
@@ -18,17 +16,16 @@ const SETTINGS_SECTIONS = [
 ];
 
 export default function SettingsShell({ onBack }: { onBack?: () => void }) {
-  const [section, setSection] = useState('video');
+  const [section, setSection] = useState('v2');
 
   const renderSection = () => {
     switch (section) {
-      case 'video': return <VideoTab />;
-      case 'voicekit': return <VoiceKitTab />;
+      case 'v2': return <V2Tab />;
       case 'templates': return <TemplatesTab />;
       case 'inbox': return <InboxTab />;
       case 'account': return <AccountTab />;
       case 'advanced': return <AdvancedTab />;
-      default: return <VideoTab />;
+      default: return <V2Tab />;
     }
   };
 

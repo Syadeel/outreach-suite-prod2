@@ -34,6 +34,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { text, language = 'English' } = body;
 
+    // Accept custom voice reference URL, fall back to hardcoded
+    const refAudioUrl = body.ref_audio_url || VOICE_REF_URL;
+
     if (!text || !text.trim()) {
       return NextResponse.json({ error: 'text is required' }, { status: 400 });
     }
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         text,
         language,
-        ref_audio_url: VOICE_REF_URL,
+        ref_audio_url: refAudioUrl,
         x_vector_only: true,
         max_new_tokens: 2048,
       }),

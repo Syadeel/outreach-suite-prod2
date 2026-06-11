@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, Upload, Plus, Users, Trash2, Filter, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Search, Upload, Plus, Users, Trash2, Filter, RefreshCw, CheckCircle2, AlertTriangle, Copy, ExternalLink } from 'lucide-react';
 
 const getDomainFromEmailOrWebsite = (email: string, website?: string) => {
   if (website) {
@@ -783,6 +783,8 @@ export default function LeadsTab() {
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Outreach Quality</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Lead Enrichment</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Voice</th>
+                  <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Email GIF</th>
+                  <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Landing Page</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Stage</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider text-right">Actions</th>
                 </tr>
@@ -926,6 +928,61 @@ export default function LeadsTab() {
                           >
                             + Upload Voice
                           </button>
+                        )}
+                      </td>
+                      {/* Email GIF URL column */}
+                      <td className="py-1.5 px-1 text-[11px]">
+                        {lead.email_gif_url ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              readOnly
+                              value={lead.email_gif_url}
+                              className="bg-slate-900 border border-slate-700 text-[10px] rounded px-1.5 py-1 w-20 text-muted truncate"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(lead.email_gif_url);
+                              }}
+                              className="text-slate-500 hover:text-emerald-400 transition-colors"
+                              title="Copy GIF URL"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+                      {/* Personalized Landing Page URL column */}
+                      <td className="py-1.5 px-1 text-[11px]">
+                        {lead.personalized_landing_page_url ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              readOnly
+                              value={lead.personalized_landing_page_url}
+                              className="bg-slate-900 border border-slate-700 text-[10px] rounded px-1.5 py-1 w-20 text-muted truncate"
+                            />
+                            <button
+                              onClick={() => navigator.clipboard.writeText(lead.personalized_landing_page_url)}
+                              className="text-slate-500 hover:text-emerald-400 transition-colors"
+                              title="Copy LP URL"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <a
+                              href={lead.personalized_landing_page_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-slate-500 hover:text-emerald-400 transition-colors"
+                              title="Open landing page"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">—</span>
                         )}
                       </td>
                       <td className="py-1.5 px-1">
