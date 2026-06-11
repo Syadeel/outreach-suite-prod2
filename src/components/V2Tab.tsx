@@ -35,6 +35,7 @@ export default function V2Tab() {
   const [faceUrl, setFaceUrl] = useState<string | null>(null)
   const [avatarReady, setAvatarReady] = useState(false)
   const [avatarSaved, setAvatarSaved] = useState(false)
+  const [avatarSavedStatus, setAvatarSavedStatus] = useState<'local' | 'remote' | null>(null)
 
   // ─── Script Template State ───
   const [scriptTemplate, setScriptTemplate] = useState(DEFAULT_SCRIPT)
@@ -55,13 +56,33 @@ export default function V2Tab() {
   const voiceRef = useRef<HTMLInputElement>(null)
   const faceRef = useRef<HTMLInputElement>(null)
 
-  // ─── Load saved avatar + results on mount ───
+  // ─── Load saved avatar (DB + localStorage fallback) + results on mount ───
   useEffect(() => {
-    const savedVoice = localStorage.getItem('os_v2_voice_ref_url')
-    const savedFace = localStorage.getItem('os_v2_face_url')
-    if (savedVoice) setVoiceUrl(savedVoice)
-    if (savedFace) setFaceUrl(savedFace)
-    if (savedVoice && savedFace) setAvatarReady(true)
+    const loadAvatar = async () => {
+      try {
+        const res = await fetch('/api/avatar-config?userId=default_user')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.voiceRefUrl || data.faceVideoUrl) {
+            if (data.voiceRefUrl) setVoiceUrl(data.voiceRefUrl)
+            if (data.faceVideoUrl) setFaceUrl(data.faceVideoUrl)
+            if (data.voiceRefUrl && data.faceVideoUrl) setAvatarReady(true)
+            setAvatarSavedStatus('remote')
+            return
+          }
+        }
+      } catch { /* fall through to localStorage */ }
+
+      // Fallback to localStorage
+      const savedVoice = localStorage.getItem('os_v2_voice_ref_url')
+      const savedFace = localStorage.getItem('os_v2_face_url')
+      if (savedVoice) setVoiceUrl(savedVoice)
+      if (savedFace) setFaceUrl(savedFace)
+      if (savedVoice && savedFace) setAvatarReady(true)
+      if (savedVoice || savedFace) setAvatarSavedStatus('local')
+    }
+
+    loadAvatar()
     fetchGeneratedLeads()
   }, [])
 
@@ -134,14 +155,52 @@ export default function V2Tab() {
     }
   }
 
-  // ─── Save Avatar ───
-  const handleSaveAvatar = () => {
+  // ─── Save Avatar (DB + localStorage) ───
+  const handleSaveAvatar = async () => {
     if (voiceUrl && faceUrl) {
       localStorage.setItem('os_v2_voice_ref_url', voiceUrl)
       localStorage.setItem('os_v2_face_url', faceUrl)
       setAvatarSaved(true)
       setTimeout(() => setAvatarSaved(false), 3000)
+
+      // Also save to DB
+      try {
+        const res = await fetch('/api/avatar-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: 'default_user',
+            voiceRefUrl: voiceUrl,
+            faceVideoUrl: faceUrl,
+          }),
+        })
+        if (res.ok) setAvatarSavedStatus('remote')
+      } catch {
+        setAvatarSavedStatus('local')
+      }
     }
+  }
+
+  // ─── Reset Avatar (DB + localStorage) ───
+  const handleResetAvatar = async () => {
+    localStorage.removeItem('os_v2_voice_ref_url')
+    localStorage.removeItem('os_v2_face_url')
+    setVoiceUrl(null)
+    setFaceUrl(null)
+    setAvatarReady(false)
+    setAvatarSavedStatus(null)
+
+    try {
+      await fetch('/api/avatar-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'default_user',
+          voiceRefUrl: null,
+          faceVideoUrl: null,
+        }),
+      })
+    } catch { /* ignore */ }
   }
 
   // ─── Fetch Generated Leads ───
@@ -346,17 +405,35 @@ export default function V2Tab() {
           </div>
         </div>
 
-        <button
-          onClick={handleSaveAvatar}
-          disabled={!avatarReady}
-          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2"
-        >
-          {avatarSaved ? (
-            <><CheckCircle className="w-4 h-4" /> Avatar Saved!</>
-          ) : (
-            <><Sparkles className="w-4 h-4" /> Save Avatar Configuration</>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSaveAvatar}
+            disabled={!avatarReady}
+            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+          >
+            {avatarSaved ? (
+              <><CheckCircle className="w-4 h-4" /> Avatar Saved!</>
+            ) : (
+              <><Sparkles className="w-4 h-4" /> Save Avatar Configuration</>
+            )}
+          </button>
+          {(voiceUrl || faceUrl) && (
+            <button
+              onClick={handleResetAvatar}
+              className="px-4 py-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm font-bold rounded-xl border border-red-500/30 transition-all flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" /> Reset
+            </button>
           )}
-        </button>
+        </div>
+        {avatarSavedStatus && (
+          <div className={`text-xs flex items-center gap-1.5 mt-2 ${
+            avatarSavedStatus === 'remote' ? 'text-emerald-400' : 'text-slate-400'
+          }`}>
+            <CheckCircle className="w-3 h-3" />
+            {avatarSavedStatus === 'remote' ? 'Saved to account (syncs across devices)' : 'Saved locally only'}
+          </div>
+        )}
       </div>
 
       {/* ──────── SECTION 2: SCRIPT TEMPLATE ──────── */}
