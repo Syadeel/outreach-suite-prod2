@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, Upload, Plus, Users, Trash2, Filter, RefreshCw, CheckCircle2, AlertTriangle, Copy, ExternalLink } from 'lucide-react';
+import { Search, Upload, Plus, Users, Trash2, Filter, RefreshCw, CheckCircle2, AlertTriangle, Copy, ExternalLink, Play, Sparkles, Loader, XCircle, X, ChevronDown, ChevronUp, Video, CheckCircle } from 'lucide-react';
 
 const getDomainFromEmailOrWebsite = (email: string, website?: string) => {
   if (website) {
@@ -93,6 +93,15 @@ export default function LeadsTab() {
   const [csvProgress, setCsvProgress] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+
+  // AI Avatar Generation State
+  const [showGenModal, setShowGenModal] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [totalGenCount, setTotalGenCount] = useState(0);
+  const [genLog, setGenLog] = useState<{lead: string; status: 'ok' | 'error'; message: string}[]>([]);
+  const [currentGenLead, setCurrentGenLead] = useState('');
+  const [showGenLog, setShowGenLog] = useState(true);
 
   useEffect(() => {
     fetchLeads();
@@ -249,6 +258,93 @@ export default function LeadsTab() {
       alert('Delete failed: ' + err.message);
     }
   };
+
+  // ─── AI Avatar Generation ───
+  const handleGenerateAvatars = async () => {
+    // Check avatar config first
+    let avatarVoiceUrl = ''
+    let avatarFaceUrl = ''
+    try {
+      const res = await fetch('/api/avatar-config?userId=default_user')
+      if (res.ok) {
+        const data = await res.json()
+        avatarVoiceUrl = data.voiceRefUrl || ''
+        avatarFaceUrl = data.faceVideoUrl || ''
+      }
+    } catch {}
+    // Fallback to localStorage
+    if (!avatarVoiceUrl) avatarVoiceUrl = localStorage.getItem('os_v2_voice_ref_url') || ''
+    if (!avatarFaceUrl) avatarFaceUrl = localStorage.getItem('os_v2_face_url') || ''
+
+    if (!avatarVoiceUrl || !avatarFaceUrl) {
+      alert('Please configure your AI Avatar first in the V2 tab (upload voice + face video and save).')
+      return
+    }
+
+    // Fetch unprocessed leads (null = never processed, 'failed' = needs retry)
+    const { data: leads, error } = await supabase
+      .from('leads')
+      .select('id, first_name, last_name, company, email')
+      .or('v2_status.is.null,v2_status.eq.failed')
+
+    if (error || !leads || leads.length === 0) {
+      alert(error ? `Query failed: ${error.message}` : 'All leads already have AI avatars generated!')
+      return
+    }
+
+    setShowGenModal(true)
+    setIsGenerating(true)
+    setTotalGenCount(leads.length)
+    setProcessedCount(0)
+    setGenLog([])
+
+    const scriptTemplate = localStorage.getItem('os_v2_script_template') ||
+      "Hey {{first_name}} from {{company}}, I built a system that helps businesses like yours grow with automated AI video outreach. Let me show you how it works."
+
+    for (const lead of leads) {
+      const name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || lead.email
+      setCurrentGenLead(name)
+
+      try {
+        const res = await fetch('/api/v2/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            leadId: lead.id,
+            script: scriptTemplate,
+            faceVideoUrl: avatarFaceUrl,
+            voiceRefUrl: avatarVoiceUrl,
+          }),
+        })
+
+        if (res.ok) {
+          setProcessedCount(p => p + 1)
+          setGenLog(prev => [...prev, {
+            lead: name,
+            status: 'ok',
+            message: `Done — ${lead.company || 'N/A'}`
+          }])
+        } else {
+          const errData = await res.json().catch(() => ({ error: 'Unknown error' }))
+          setGenLog(prev => [...prev, {
+            lead: name,
+            status: 'error',
+            message: errData.error || `HTTP ${res.status}`
+          }])
+        }
+      } catch (err: any) {
+        setGenLog(prev => [...prev, {
+          lead: name,
+          status: 'error',
+          message: err.message || 'Network error'
+        }])
+      }
+    }
+
+    setIsGenerating(false)
+    setCurrentGenLead('')
+    fetchLeads()
+  }
 
   const handleVerifyLeads = async (leadIds?: string[]) => {
     setVerifying(true);
@@ -531,6 +627,16 @@ export default function LeadsTab() {
             />
           </label>
 
+          {/* Generate AI Avatars */}
+          <button
+            onClick={handleGenerateAvatars}
+            disabled={isGenerating}
+            className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-purple-600/10 active:scale-95"
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate AI Avatars
+          </button>
+
           {/* Add Manual */}
           <button
             onClick={() => setShowAddForm(!showAddForm)}
@@ -782,7 +888,7 @@ export default function LeadsTab() {
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Website</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Outreach Quality</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Lead Enrichment</th>
-                  <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Voice</th>
+                  <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">V2 Status</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Email GIF</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Landing Page</th>
                   <th className="py-1.5 px-1 text-[10px] font-semibold uppercase text-slate-400 tracking-wider">Stage</th>
@@ -879,55 +985,31 @@ export default function LeadsTab() {
                         )}
                       </td>
                       <td className="py-1.5 px-1">
-                        {lead.voice_sample ? (
-                          <div className="flex items-center gap-1">
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 cursor-default" title={lead.voice_sample}>
-                              🎤 Ready
-                            </span>
-                            <button
-                              onClick={() => {
-                                const input = document.createElement('input');
-                                input.type = 'file';
-                                input.accept = '.mp3,.wav,audio/mpeg,audio/wav';
-                                input.onchange = async () => {
-                                  const file = input.files?.[0];
-                                  if (!file) return;
-                                  const form = new FormData();
-                                  form.append('file', file);
-                                  form.append('leadId', lead.id);
-                                  const res = await fetch('/api/vk/upload-voice', { method: 'POST', body: form });
-                                  if (res.ok) fetchLeads();
-                                };
-                                input.click();
-                              }}
-                              className="text-[9px] text-slate-600 hover:text-indigo-400 ml-0.5"
-                              title="Replace voice sample"
-                            >
-                              ↻
-                            </button>
-                          </div>
+                        {!lead.v2_status || lead.v2_status === 'none' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-slate-500/10 text-slate-400 border-slate-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            Pending
+                          </span>
+                        ) : lead.v2_status === 'processing' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                            <Loader className="w-2.5 h-2.5 animate-spin" />
+                            Processing
+                          </span>
+                        ) : lead.v2_status === 'ready' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            <CheckCircle className="w-2.5 h-2.5" />
+                            Ready
+                          </span>
+                        ) : lead.v2_status === 'failed' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-rose-500/10 text-rose-400 border-rose-500/20">
+                            <XCircle className="w-2.5 h-2.5" />
+                            Failed
+                          </span>
                         ) : (
-                          <button
-                            onClick={() => {
-                              const input = document.createElement('input');
-                              input.type = 'file';
-                              input.accept = '.mp3,.wav,audio/mpeg,audio/wav';
-                              input.onchange = async () => {
-                                const file = input.files?.[0];
-                                if (!file) return;
-                                const form = new FormData();
-                                form.append('file', file);
-                                form.append('leadId', lead.id);
-                                const res = await fetch('/api/vk/upload-voice', { method: 'POST', body: form });
-                                if (res.ok) fetchLeads();
-                              };
-                              input.click();
-                            }}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-slate-500/10 text-slate-500 border-slate-500/20 hover:bg-indigo-500/10 hover:text-indigo-400 hover:border-indigo-500/30 transition-all cursor-pointer"
-                            title="Upload a .mp3 voice sample for VK cloning"
-                          >
-                            + Upload Voice
-                          </button>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-slate-500/10 text-slate-400 border-slate-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            Pending
+                          </span>
                         )}
                       </td>
                       {/* Email GIF URL column */}
@@ -1016,6 +1098,109 @@ export default function LeadsTab() {
           )}
         </div>
       </div>
+
+      {/* ──────── AI AVATAR GENERATION MODAL ──────── */}
+      {showGenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-panel rounded-2xl border border-slate-800/60 w-full max-w-xl max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-800/60">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <h3 className="text-lg font-bold text-heading">Generating AI Avatars</h3>
+              </div>
+              <button
+                onClick={() => setShowGenModal(false)}
+                className="p-2 text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Progress Bar */}
+              {isGenerating && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-body">
+                    <span>Processing leads</span>
+                    <span>{processedCount} / {totalGenCount}</span>
+                  </div>
+                  <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-purple-500 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: totalGenCount ? `${(processedCount / totalGenCount) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  {currentGenLead && (
+                    <div className="flex items-center gap-2 text-xs text-purple-400 animate-pulse">
+                      <Loader className="w-3 h-3 animate-spin" />
+                      Now processing: {currentGenLead}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Generation Log */}
+              {genLog.length > 0 && (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowGenLog(!showGenLog)}
+                    className="flex items-center gap-1 text-xs text-muted hover:text-body transition-colors"
+                  >
+                    {showGenLog ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    Generation Log ({genLog.length} entries)
+                  </button>
+                  {showGenLog && (
+                    <div className="bg-slate-950/40 rounded-xl border border-slate-800/60 p-3 max-h-60 overflow-y-auto space-y-1">
+                      {genLog.map((entry, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs">
+                          {entry.status === 'ok' ? (
+                            <CheckCircle size={12} className="text-emerald-400 mt-0.5 shrink-0" />
+                          ) : (
+                            <XCircle size={12} className="text-red-400 mt-0.5 shrink-0" />
+                          )}
+                          <div>
+                            <span className="font-medium text-body">{entry.lead}</span>
+                            <span className="text-muted"> — {entry.message}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {genLog.length === 0 && !isGenerating && (
+                <div className="text-center py-8">
+                  <Video className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+                  <p className="text-sm text-body">No leads to process</p>
+                  <p className="text-xs text-muted mt-1">All leads may already have AI avatars generated</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-5 border-t border-slate-800/60">
+              {!isGenerating && (
+                <button
+                  onClick={() => { setShowGenModal(false); fetchLeads(); }}
+                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-xl transition-all"
+                >
+                  {genLog.length > 0 ? 'Done — Refresh Leads' : 'Close'}
+                </button>
+              )}
+              {isGenerating && (
+                <div className="flex items-center gap-2 text-xs text-amber-400">
+                  <Loader className="w-3 h-3 animate-spin" />
+                  Please wait — generation in progress...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

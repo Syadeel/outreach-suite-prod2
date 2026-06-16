@@ -226,7 +226,7 @@ export default function V2Tab() {
     const { data: leads, error } = await supabase
       .from('leads')
       .select('id, first_name, last_name, company, email')
-      .or('v2_status.is.null,v2_status.eq.none,v2_status.eq.failed')
+      .or('v2_status.is.null,v2_status.eq.failed')
 
     if (error || !leads || leads.length === 0) {
       setGenerationLog([{ lead: 'System', status: 'error', message: 'No unprocessed leads found or query failed' }])
