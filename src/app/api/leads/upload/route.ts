@@ -46,8 +46,20 @@ export async function POST(req: NextRequest) {
       const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
       if (!emailValid) continue;
 
-      // Screenshot placeholder – you can replace with a real headless‑chrome service later
-      const screenshotUrl = `https://screenshot-service.example.com/api?url=${encodeURIComponent(website)}`;
+      // Generate website screenshot
+      let screenshotUrl = null;
+      try {
+        const screenshotRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/screenshot/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: website }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (screenshotRes.ok) {
+          const screenshotData = await screenshotRes.json();
+          screenshotUrl = screenshotData.screenshotUrl;
+        }
+      } catch (e) { /* screenshot generation failed, continue without it */ }
 
       // Insert lead in Supabase
       const { data: lead, error: insErr } = await supabaseAdmin
@@ -58,6 +70,7 @@ export async function POST(req: NextRequest) {
           last_name,
           company,
           website,
+          website_screenshot_url: screenshotUrl,
           custom_fields: { screenshot: screenshotUrl },
         })
         .single();

@@ -54,14 +54,10 @@ DROP POLICY IF EXISTS "Allow all on generation_queue" ON generation_queue;
 CREATE POLICY "Allow all on generation_queue" ON generation_queue
   FOR ALL USING (true);
 
--- 3. Migrate existing avatar_config data to avatar_library if any
-INSERT INTO avatar_library (user_id, name, voice_ref_url, face_video_url, is_active)
-SELECT 
-  COALESCE(user_id, 'default_user'),
-  'Default Avatar',
-  voice_ref_url,
-  face_video_url,
-  true
-FROM avatar_config
-WHERE voice_ref_url IS NOT NULL AND face_video_url IS NOT NULL
-ON CONFLICT DO NOTHING;
+-- Note: avatar_config table migration skipped — table may not exist.
+-- If avatar_config exists, run:
+-- INSERT INTO avatar_library (user_id, name, voice_ref_url, face_video_url, is_active)
+-- SELECT COALESCE(user_id, 'default_user'), 'Default Avatar',
+--   voice_ref_url, face_video_url, true
+-- FROM avatar_config WHERE voice_ref_url IS NOT NULL AND face_video_url IS NOT NULL
+-- ON CONFLICT DO NOTHING;

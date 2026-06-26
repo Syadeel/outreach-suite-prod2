@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Resets daily sending counts for all inboxes.
  * Runs on a daily cron cycle (e.g. at 12:00 AM UTC).

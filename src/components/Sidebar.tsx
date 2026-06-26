@@ -3,11 +3,16 @@ import {
   Users, 
   BarChart2, 
   Settings,
-  Flame,
   Sun,
   Moon,
-  Mail
+  Mail,
+  FileText,
+  Inbox,
+  Video,
+  Mic,
+  Sparkles
 } from 'lucide-react';
+import styles from './Sidebar.module.css';
 
 interface SidebarProps {
   activeTab: string;
@@ -15,27 +20,32 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
-  const [isLightMode, setIsLightMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
-      setIsLightMode(true);
+      setIsDarkMode(false);
       document.body.classList.add('light');
+      document.body.classList.remove('dark');
     } else {
+      setIsDarkMode(true);
+      document.body.classList.add('dark');
       document.body.classList.remove('light');
     }
   }, []);
 
   const toggleTheme = () => {
-    const newMode = !isLightMode;
-    setIsLightMode(newMode);
-    if (newMode) {
-      document.body.classList.add('light');
-      localStorage.setItem('theme', 'light');
-    } else {
+    const newIsDark = !isDarkMode;
+    setIsDarkMode(newIsDark);
+    if (newIsDark) {
+      document.body.classList.add('dark');
       document.body.classList.remove('light');
       localStorage.setItem('theme', 'dark');
+    } else {
+      document.body.classList.add('light');
+      document.body.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     }
   };
 
@@ -43,21 +53,36 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'campaigns', label: 'Campaigns', icon: Mail },
     { id: 'leads', label: 'Leads & CRM', icon: Users },
+    { id: 'avatar', label: 'Avatar Studio', icon: Sparkles },
+    { id: 'templates', label: 'Templates', icon: FileText },
+    { id: 'inbox', label: 'Inbox', icon: Inbox },
+    { id: 'video', label: 'Video', icon: Video },
+    { id: 'voicekit', label: 'Voice AI', icon: Mic },
   ];
 
   return (
-    <aside className="w-64 glass-panel border-r border-slate-800/60 p-6 flex flex-col justify-between h-screen sticky top-0">
+    <aside className={styles.sidebar}>
       <div>
         {/* Brand Header */}
-        <div className="flex items-center gap-2 mb-8 px-2">
-          <Flame className="w-8 h-8 text-emerald-500 animate-pulse" />
-          <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
-            OS
-          </span>
+        <div className={styles.brand}>
+          <img
+            src="https://wxxjiehgcjrmkbatkvsu.supabase.co/storage/v1/object/public/images/images/images_1782500392085.png"
+            alt="Capital Acquisition"
+            width={32}
+            height={32}
+            className={styles.brandLogo}
+            style={{ borderRadius: '6px', objectFit: 'contain' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove(styles.hidden); }}
+          />
+          <span className={`${styles.brandFallback} ${styles.hidden}`}>CA</span>
+          <div className={styles.brandTextCol}>
+            <span className={styles.brandText}>Capital Acquisition</span>
+            <span className={styles.brandSubtext}>Outreach Suite</span>
+          </div>
         </div>
 
         {/* Navigation Menu */}
-        <nav className="space-y-1.5">
+        <nav className={styles.nav}>
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -65,13 +90,9 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-emerald-600/40 to-teal-600/20 border-l-4 border-emerald-500 text-heading font-medium shadow-lg shadow-emerald-500/10'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-                }`}
+                className={isActive ? styles.navItemActive : styles.navItem}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <Icon className={styles.navIcon} />
                 {item.label}
               </button>
             );
@@ -79,37 +100,32 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         </nav>
       </div>
 
-      {/* User Branding & Theme Footer */}
-      <div className="border-t border-slate-800/60 pt-4 space-y-2 px-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-bold text-emerald-300">
-              G
-            </div>
+      {/* User Branding, Theme Toggle & Powered By */}
+      <div className={styles.footer}>
+        <div className={styles.userRow}>
+          <div className={styles.userInfo}>
+            <div className={styles.userAvatar}>G</div>
             <div>
-              <h4 className="text-sm font-semibold text-heading">Ghost</h4>
-              <p className="text-xs text-slate-500">Personal Workspace</p>
+              <h4 className={styles.userName}>Ghost</h4>
+              <p className={styles.userLabel}>Personal Workspace</p>
             </div>
           </div>
           <button
             onClick={toggleTheme}
-            title={`Switch to ${isLightMode ? 'Dark' : 'Light'} Mode`}
-            className="p-2 rounded-xl text-slate-400 hover:text-emerald-400 hover:bg-slate-800/40 transition-colors"
+            title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} Mode`}
+            className={styles.themeToggle}
           >
-            {isLightMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            {isDarkMode ? <Sun className={styles.themeIcon} /> : <Moon className={styles.themeIcon} />}
           </button>
         </div>
         <button
           onClick={() => setActiveTab('settings')}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-            activeTab === 'settings'
-              ? 'bg-gradient-to-r from-emerald-600/40 to-teal-600/20 border-l-4 border-emerald-500 text-heading font-medium'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
+          className={activeTab === 'settings' ? styles.settingsBtnActive : styles.settingsBtn}
         >
-          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'text-emerald-400' : 'text-slate-400'}`} />
+          <Settings className={styles.navIcon} />
           <span>Settings</span>
         </button>
+        <p className={styles.poweredBy}>Powered by Capital Acquisition</p>
       </div>
     </aside>
   );

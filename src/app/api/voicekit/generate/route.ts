@@ -24,7 +24,7 @@ const execFileAsync = promisify(execFile);
 const VK_ROOT = path.resolve(process.cwd(), '..', 'voicekit');
 const VOICE_DIR = path.join(VK_ROOT, 'voice_sample');
 const OUTPUT_DIR = path.join(VK_ROOT, 'output');
-const TEMPLATE_VIDEO = path.join(VK_ROOT, 'input', 'sendr zoomed.mkv');
+const TEMPLATE_VIDEO = path.join(VK_ROOT, 'input', 'sendr zoomed.mp4');
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -55,7 +55,12 @@ export async function POST(req: NextRequest) {
     if (!fs.existsSync(templatePath)) {
       const inputDir = path.join(VK_ROOT, 'input');
       if (fs.existsSync(inputDir)) {
-        const files = fs.readdirSync(inputDir).filter(f => f.match(/\.(mp4|mkv|avi|mov)$/i));
+        const files = fs.readdirSync(inputDir).filter(f => f.match(/\.(mp4|mov|avi|mkv)$/i)).sort((a, b) => {
+          // Prefer MP4 over other formats
+          if (a.endsWith('.mp4') && !b.endsWith('.mp4')) return -1;
+          if (!a.endsWith('.mp4') && b.endsWith('.mp4')) return 1;
+          return 0;
+        });
         if (files.length > 0) templatePath = path.join(inputDir, files[0]);
       }
     }

@@ -9,25 +9,32 @@ export interface LandingTemplate {
   id: string
   name: string
   is_default: boolean
+  hidden_sections: string[] | null
   brand_title: string | null
   brand_logo_url: string | null
   brand_color: string | null
-  badge_text: string | null
   hero_heading: string | null
   hero_subheading: string | null
   hero_body: string | null
+  hero_bg_color: string | null
+  hero_text_color: string | null
   cta_text: string | null
   cta_url: string | null
-  cta_description: string | null
+  cta_bg_color: string | null
   calendar_embed_code: string | null
   calendar_heading: string | null
   social_proof_heading: string | null
   social_proof_logos: string[] | null
+  social_proof_bg_color: string | null
+  social_proof_text_color: string | null
   why_matters_heading: string | null
   why_matters_subheading: string | null
   why_matters_body: string | null
+  why_matters_bg_color: string | null
+  why_matters_text_color: string | null
   footer_text: string | null
   footer_powered_by: string | null
+  footer_bg_color: string | null
   custom_css: string | null
 }
 
@@ -38,10 +45,6 @@ export interface LeadData {
   email?: string | null
 }
 
-/**
- * Apply template variables to a string.
- * Replaces {{first_name}}, {{company}}, {{brand_title}}, {{year}}
- */
 export function applyTemplateVars(
   text: string | null | undefined,
   lead: LeadData | null,
@@ -60,10 +63,6 @@ export function applyTemplateVars(
   return text.replace(/\{\{(\w+)\}\}/g, (match, key) => vars[key] || match)
 }
 
-/**
- * Merge template fields with lead data.
- * Returns an object with all template fields with variables resolved.
- */
 export function resolveTemplate(
   template: LandingTemplate | null,
   lead: LeadData | null
@@ -73,21 +72,11 @@ export function resolveTemplate(
   const result: Record<string, string> = {}
 
   const fields: (keyof LandingTemplate)[] = [
-    'brand_title',
-    'badge_text',
-    'hero_heading',
-    'hero_subheading',
-    'hero_body',
-    'cta_text',
-    'cta_description',
-    'calendar_heading',
-    'social_proof_heading',
-    'why_matters_heading',
-    'why_matters_subheading',
-    'why_matters_body',
-    'footer_text',
-    'footer_powered_by',
-    'custom_css',
+    'brand_title', 'hero_heading', 'hero_subheading', 'hero_body', 'hero_bg_color', 'hero_text_color',
+    'cta_text', 'cta_bg_color', 'calendar_heading',
+    'social_proof_heading', 'social_proof_bg_color', 'social_proof_text_color',
+    'why_matters_heading', 'why_matters_subheading', 'why_matters_body', 'why_matters_bg_color', 'why_matters_text_color',
+    'footer_text', 'footer_powered_by', 'footer_bg_color', 'custom_css',
   ]
 
   for (const field of fields) {
@@ -95,12 +84,12 @@ export function resolveTemplate(
     result[field] = applyTemplateVars(val as string | null, lead, template.brand_title)
   }
 
-  // Logo URLs and embed codes don't need variable substitution
   result['brand_logo_url'] = template.brand_logo_url || ''
   result['brand_color'] = template.brand_color || '#4F46E5'
   result['cta_url'] = template.cta_url || ''
   result['calendar_embed_code'] = template.calendar_embed_code || ''
   result['social_proof_logos'] = template.social_proof_logos?.join(',') || ''
+  result['hidden_sections'] = (template.hidden_sections || []).join(',')
 
   return result
 }

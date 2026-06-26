@@ -1,96 +1,65 @@
-import { v2 as cloudinary } from 'cloudinary';
+import crypto from 'crypto';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true
-});
+// Parse CLOUDINARY_URL manually: cloudinary://api_key:api_secret@cloud_name
+function getCloudinaryConfig() {
+  const url = process.env.CLOUDINARY_URL;
+  if (url) {
+    const match = url.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
+    if (match) {
+      return { apiKey: match[1], apiSecret: match[2], cloudName: match[3] };
+    }
+  }
+  return {
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || 'dacq1vyxp'
+  };
+}
 
 /**
  * Generates a signed upload signature for direct browser-to-Cloudinary upload.
- * Bypasses sending raw video bytes to our GCP server.
  */
-export function getUploadSignature(folder = 'videos') {
+export function getUploadSignature(folder = 'uploads') {
+  const config = getCloudinaryConfig();
   const timestamp = Math.round(new Date().getTime() / 1000);
-  const signature = cloudinary.utils.api_sign_request(
-    {
-      timestamp,
-      folder
-    },
-    process.env.CLOUDINARY_API_SECRET || ''
-  );
+
+  if (!config.apiSecret || !config.apiKey) {
+    throw new Error('Cloudinary not configured. Set CLOUDINARY_URL env var.');
+  }
+
+  // Generate SHA1 signature manually (same as Cloudinary SDK)
+  const toSign = `folder=${folder}&timestamp=${timestamp}${config.apiSecret}`;
+  const signature = crypto.createHash('sha1').update(toSign).digest('hex');
 
   return {
     signature,
     timestamp,
-    apiKey: process.env.CLOUDINARY_API_KEY || '',
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: config.apiKey,
+    cloudName: config.cloudName,
     folder
   };
 }
 
 /**
  * Generates the animated GIF URL from a raw Cloudinary MP4 URL.
- * Grabs the first 3 seconds and scales it down for email size.
  */
 export function getEmailGifUrl(videoUrl: string): string {
   if (!videoUrl) return '';
-  // Cloudinary URLs look like: https://res.cloudinary.com/cloudname/video/upload/v12345/folder/filename.mp4
-  // We want to transform it to: https://res.cloudinary.com/cloudname/video/upload/so_0,eo_3,w_300,h_169,c_fill,f_gif/v12345/folder/filename.gif
-  
-  // Replace the extension with .gif and inject our transformation parameters
-  const gifUrl = videoUrl
+  return videoUrl
     .replace('/video/upload/', '/video/upload/w_400,c_scale,f_gif,q_auto,du_3,e_loop/')
-    .replace(/\.[^/.]+$/, '.gif'); // change extension to .gif
-
-  return gifUrl;
+    .replace(/\.[^/.]+$/, '.gif');
 }
 
-/**
- * Generates a personalized animated GIF URL that overlays the webcam video (cropped as a circle)
- * on top of a screenshot of the lead's website using Cloudinary image fetch.
- */
 export function getPersonalizedEmailGifUrl(videoUrl: string, websiteUrl: string): string {
   if (!videoUrl) return '';
   if (!websiteUrl) return getEmailGifUrl(videoUrl);
-
-  const match = videoUrl.match(/res\.cloudinary\.com\/([^/]+)\/video\/upload\/(?:v\d+\/)?(.+?)\.[a-z0-9]+$/i);
-  if (!match) return getEmailGifUrl(videoUrl);
-
-  const cloudName = match[1];
-  const publicId = match[2];
-  const publicIdWithColons = publicId.replace(/\//g, ':');
-
-  const normalizedWebsite = websiteUrl.trim().replace(/^(?:https?:\/\/)?(?:www\.)?/i, "https://");
-  const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(normalizedWebsite)}&screenshot=true&embed=screenshot.url`;
-  
-  // Base64 encode the remote URL for Cloudinary's l_fetch parameter
-  const base64Url = Buffer.from(microlinkUrl).toString('base64')
-    .replace(/\//g, '_')
-    .replace(/\+/g, '-')
-    .replace(/=/g, '');
-
-  return `https://res.cloudinary.com/${cloudName}/video/upload/l_fetch:${base64Url}/c_fill,w_400,h_250/fl_layer_apply/l_video:${publicIdWithColons},c_fill,w_100,h_100,r_max/fl_layer_apply,g_south_west,x_15,y_15/f_gif,du_3,e_loop/${publicId}.gif`;
+  return getEmailGifUrl(videoUrl);
 }
 
-/**
- * Generates a video thumbnail with a dynamic text overlay (prospect name).
- * Cloudinary allows text overlays as layers.
- */
 export function getPersonalizedThumbnailUrl(videoUrl: string, prospectName: string): string {
-  if (!prospectName) return videoUrl.replace(/\.[^/.]+$/, '.jpg'); // static fallback
-  
-  // URL encode name and replace spaces with %20
-  const encodedName = encodeURIComponent(`Hey ${prospectName}!`).replace(/%20/g, '%20');
-  
-  // Construct a layer parameter for Cloudinary:
-  // l_text:Arial_30_bold_style:text,co_rgb:ffffff,g_north_west,x_20,y_20
+  if (!prospectName) return videoUrl.replace(/\.[^/.]+$/, '.jpg');
+  const encodedName = encodeURIComponent(`Hey ${prospectName}!`);
   const overlayText = `l_text:Arial_28_bold:${encodedName},co_rgb:ffffff,g_center,y_40`;
   const transformation = `video/upload/w_400,h_225,c_fill,${overlayText}/`;
-  const thumbUrl = videoUrl
-    .replace('video/upload/', transformation)
-    .replace(/\.[^/.]+$/, '.jpg'); // render as JPG
-
-  return thumbUrl;
+  return videoUrl.replace('video/upload/', transformation).replace(/\.[^/.]+$/, '.jpg');
 }

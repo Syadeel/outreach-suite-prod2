@@ -21,7 +21,11 @@ export function middleware(req: NextRequest) {
     pathname.startsWith('/api/tracking') ||
     pathname.startsWith('/api/cron') ||
     pathname.startsWith('/api/poll-replies') ||
-    pathname.startsWith('/api/auth')
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/cloudinary') ||
+    pathname.startsWith('/api/screenshot') ||
+    pathname.startsWith('/api/video-recordings') ||
+    pathname.startsWith('/api/upload')
   ) {
     return NextResponse.next();
   }

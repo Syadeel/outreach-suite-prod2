@@ -1,0 +1,131 @@
+/* ===================================================================
+   Sneat Shared Component Styles
+   Use across all OS components
+   =================================================================== */
+
+/* Common Card */
+.sneat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); }
+.sneat-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.sneat-card-title { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); }
+.sneat-card-desc { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 1rem; }
+
+/* Common Input */
+.sneat-input { width: 100%; padding: 0.625rem 0.875rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.875rem; font-family: var(--font-family); transition: border-color var(--transition); }
+.sneat-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(124,92,252,0.1); }
+.sneat-input::placeholder { color: var(--text-muted); }
+
+/* Common Textarea */
+.sneat-textarea { width: 100%; padding: 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.875rem; font-family: var(--font-family); resize: vertical; min-height: 100px; transition: border-color var(--transition); }
+.sneat-textarea:focus { outline: none; border-color: var(--primary); }
+
+/* Common Select */
+.sneat-select { padding: 0.5rem 0.75rem; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.875rem; cursor: pointer; font-family: var(--font-family); }
+
+/* Common Button Primary */
+.sneat-btn-primary { padding: 0.5rem 1rem; background: var(--primary); color: #ffffff; font-size: 0.875rem; font-weight: 600; border-radius: var(--radius-md); border: none; cursor: pointer; transition: all var(--transition); display: inline-flex; align-items: center; gap: 0.5rem; }
+.sneat-btn-primary:hover { background: var(--primary-hover); }
+
+/* Common Button Secondary */
+.sneat-btn-secondary { padding: 0.5rem 1rem; background: var(--bg-card); color: var(--text-primary); font-size: 0.875rem; font-weight: 600; border-radius: var(--radius-md); border: 1px solid var(--border-color); cursor: pointer; transition: all var(--transition); display: inline-flex; align-items: center; gap: 0.5rem; }
+.sneat-btn-secondary:hover { background: var(--bg-hover); }
+
+/* Common Button Ghost */
+.sneat-btn-ghost { padding: 0.5rem 1rem; background: transparent; color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; border-radius: var(--radius-md); border: none; cursor: pointer; transition: all var(--transition); display: inline-flex; align-items: center; gap: 0.5rem; }
+.sneat-btn-ghost:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* Common Label */
+.sneat-label { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.375rem; }
+
+/* Common Badge */
+.sneat-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; font-size: 0.6875rem; font-weight: 600; border-radius: 100px; }
+.sneat-badge-primary { background: var(--primary-light); color: var(--primary); }
+.sneat-badge-success { background: var(--success-light); color: var(--success); }
+.sneat-badge-warning { background: var(--warning-light); color: var(--warning); }
+.sneat-badge-danger { background: var(--danger-light); color: var(--danger); }
+.sneat-badge-info { background: var(--info-light); color: var(--info); }
+
+/* Common Divider */
+.sneat-divider { border: none; border-top: 1px solid var(--border-light); margin: 1rem 0; }
+
+/* Common Modal */
+.sneat-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.sneat-modal { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); width: 100%; max-width: 32rem; max-height: 85vh; overflow-y: auto; padding: 1.5rem; box-shadow: var(--shadow-lg); }
+.sneat-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+.sneat-modal-title { font-size: 1.125rem; font-weight: 600; color: var(--text-primary); }
+.sneat-modal-close { color: var(--text-muted); background: transparent; border: none; cursor: pointer; transition: color var(--transition); }
+.sneat-modal-close:hover { color: var(--text-primary); }
+
+/* Common Table */
+.sneat-table { width: 100%; text-align: left; border-collapse: collapse; }
+.sneat-table th { padding: 0.625rem 0.75rem; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.04em; background: var(--bg-input); border-bottom: 1px solid var(--border-color); }
+.sneat-table td { padding: 0.625rem 0.75rem; font-size: 0.8125rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-light); }
+.sneat-table tr:hover td { background: var(--bg-hover); }
+
+/* Common Loading */
+.sneat-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 0; gap: 0.75rem; }
+.sneat-loading-spinner { width: 2rem; height: 2rem; border: 2px solid var(--border-color); border-top-color: var(--primary); border-radius: 9999px; animation: spin 0.7s linear infinite; }
+.sneat-loading-text { color: var(--text-secondary); font-size: 0.875rem; }
+
+/* Common Empty */
+.sneat-empty { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.875rem; }
+.sneat-empty-icon { width: 2.5rem; height: 2.5rem; color: var(--text-muted); margin: 0 auto 0.75rem; }
+.sneat-empty-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
+.sneat-empty-desc { font-size: 0.8125rem; color: var(--text-secondary); }
+
+/* Common Progress */
+.sneat-progress { width: 100%; height: 0.25rem; background: var(--bg-input); border-radius: 9999px; overflow: hidden; }
+.sneat-progress-bar { height: 100%; background: var(--primary); border-radius: 9999px; transition: width 0.5s ease; }
+
+/* Common Grid */
+.sneat-grid { display: grid; gap: 1rem; }
+.sneat-grid-2 { grid-template-columns: repeat(1, 1fr); }
+@media (min-width: 768px) { .sneat-grid-2 { grid-template-columns: repeat(2, 1fr); } }
+.sneat-grid-3 { grid-template-columns: repeat(1, 1fr); }
+@media (min-width: 768px) { .sneat-grid-3 { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .sneat-grid-3 { grid-template-columns: repeat(3, 1fr); } }
+.sneat-grid-4 { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 1024px) { .sneat-grid-4 { grid-template-columns: repeat(4, 1fr); } }
+
+/* Common Flex */
+.sneat-flex { display: flex; }
+.sneat-flex-col { display: flex; flex-direction: column; }
+.sneat-flex-wrap { flex-wrap: wrap; }
+.sneat-items-center { align-items: center; }
+.sneat-justify-between { justify-content: space-between; }
+.sneat-gap-1 { gap: 0.25rem; }
+.sneat-gap-2 { gap: 0.5rem; }
+.sneat-gap-3 { gap: 0.75rem; }
+.sneat-gap-4 { gap: 1rem; }
+
+/* Common Text */
+.sneat-text-primary { color: var(--text-primary); }
+.sneat-text-secondary { color: var(--text-secondary); }
+.sneat-text-muted { color: var(--text-muted); }
+.sneat-text-success { color: var(--success); }
+.sneat-text-warning { color: var(--warning); }
+.sneat-text-danger { color: var(--danger); }
+.sneat-text-info { color: var(--info); }
+
+/* Common Font */
+.sneat-font-bold { font-weight: 700; }
+.sneat-font-semibold { font-weight: 600; }
+.sneat-font-medium { font-weight: 500; }
+.sneat-text-xs { font-size: 0.75rem; }
+.sneat-text-sm { font-size: 0.8125rem; }
+.sneat-text-base { font-size: 0.875rem; }
+
+/* Common Spacing */
+.sneat-p-1 { padding: 0.25rem; }
+.sneat-p-2 { padding: 0.5rem; }
+.sneat-p-3 { padding: 0.75rem; }
+.sneat-p-4 { padding: 1rem; }
+.sneat-p-6 { padding: 1.5rem; }
+.sneat-mb-1 { margin-bottom: 0.25rem; }
+.sneat-mb-2 { margin-bottom: 0.5rem; }
+.sneat-mb-3 { margin-bottom: 0.75rem; }
+.sneat-mb-4 { margin-bottom: 1rem; }
+
+/* Common Animation */
+.sneat-fade-in { animation: fadeIn 0.3s ease-out; }
+.sneat-fade-in-up { animation: fadeInUp 0.4s ease-out; }
+.sneat-scale-in { animation: scaleIn 0.3s ease-out; }

@@ -11,7 +11,9 @@ import AnalyticsTab from '../components/AnalyticsTab';
 import SettingsTab from '../components/SettingsTab';
 import TemplatesTab from '../components/TemplatesTab';
 import SettingsShell from '../components/SettingsShell';
+import AvatarStudioTab from '../components/AvatarStudioTab';
 import { Sparkles, Lock, KeyRound, AlertCircle, RefreshCw } from 'lucide-react';
+import styles from './page.module.css';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('analytics');
@@ -98,6 +100,8 @@ export default function Home() {
         return <AnalyticsTab />;
       case 'settings':
         return <SettingsShell />;
+      case 'avatar':
+        return <AvatarStudioTab />;
       default:
         return <AnalyticsTab />;
     }
@@ -105,10 +109,10 @@ export default function Home() {
 
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        <div className="text-center space-y-2">
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm mt-4">Loading secure workspace...</p>
+      <div className={styles.loading}>
+        <div className={styles.loadingContent}>
+          <div className={styles.loadingSpinner}></div>
+          <p className={styles.loadingText}>Loading secure workspace...</p>
         </div>
       </div>
     );
@@ -116,44 +120,46 @@ export default function Home() {
 
   if (isAuthenticated === false) {
     return (
-      <div className="animated-gradient min-h-screen text-slate-100 flex items-center justify-center relative overflow-hidden p-4">
-        {/* Decorative Background Glows */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute inset-0 grid-bg opacity-30 pointer-events-none z-0" />
+      <div className={styles.authContainer}>
+        {/* Animated grid background */}
+        <div className={styles.authBgGrid} />
+        
+        {/* Gradient orbs */}
+        <div className={styles.authGlow1} />
+        <div className={styles.authGlow2} />
 
-        <div className="w-full max-w-md relative z-10">
-          <div className="glass p-8 rounded-3xl border border-white/5 space-y-6 shadow-2xl text-center">
-            {/* Header Branding */}
-            <div className="space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shadow-inner mx-auto mb-2">
-                <Lock className="w-6 h-6 text-emerald-400" />
+        <div className={styles.authCard}>
+          <div className={styles.authCardInner}>
+            <div className={styles.authHeader}>
+              <div className={styles.authIcon}>
+                <Lock className={styles.authIconSvg} />
               </div>
-              <h1 className="text-xl font-bold tracking-tight text-heading">Outreach Suite</h1>
-              <p className="text-xs text-zinc-400">
+              <h1 className={styles.authTitle}>Outreach Suite</h1>
+              <p className={styles.authSubtitle}>
                 Enter your workspace key to access Capital Acquisition Systems.
               </p>
             </div>
 
             {/* Login Form */}
-            <form onSubmit={handleLogin} className="space-y-4 text-left">
+            <form onSubmit={handleLogin} className={styles.authForm}>
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Workspace Key</label>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-500 absolute left-4 top-3.5" />
+                <label className={styles.authLabel}>Workspace Key</label>
+                <div className={styles.authInputWrapper}>
+                  <KeyRound className={styles.authInputIcon} />
                   <input
                     type="password"
                     placeholder="••••••••••••"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl glass-input text-sm text-heading"
+                    className={styles.authInput}
                     required
                   />
                 </div>
               </div>
 
               {authError && (
-                <div className="flex items-start gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-semibold animate-fadeIn">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
+                <div className={styles.authError}>
+                  <AlertCircle className={styles.authErrorIcon} />
                   <span>{authError}</span>
                 </div>
               )}
@@ -161,11 +167,11 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={authenticating}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 text-sm glow-button text-white-force"
+                className={styles.authBtn}
               >
                 {authenticating ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" /> Verifying...
+                    <RefreshCw className={styles.authBtnIcon} /> Verifying...
                   </>
                 ) : (
                   'Unlock Workspace'
@@ -179,31 +185,31 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className={styles.page}>
       {/* Sidebar Navigation */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Main Dashboard Container */}
-      <main className="flex-1 p-8 overflow-y-auto max-h-screen relative">
+      <main className={styles.main}>
         
         {/* Subtle decorative background gradient circles */}
-        <div className="absolute top-10 right-20 w-72 h-72 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none" />
-        <div className="absolute bottom-20 left-10 w-96 h-96 bg-pink-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className={styles.bgGlow1} />
+        <div className={styles.bgGlow2} />
 
         {/* Tab Wrapper */}
-        <div className="max-w-6xl mx-auto space-y-6 relative z-10">
+        <div className={styles.container}>
           
           {/* Quick Notice/Banner */}
-          <div className="glass-panel px-4 py-3 rounded-2xl flex items-center justify-between border-slate-800/40 bg-indigo-950/15">
-            <div className="flex items-center gap-2 text-xs text-indigo-300 font-semibold">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
+          <div className={styles.banner}>
+            <div className={styles.bannerLeft}>
+              <Sparkles className={styles.bannerIcon} />
               <span>Workspace loaded. Automated sequencing is active in the background.</span>
             </div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">v1.0.0 Stable</span>
+            <span className={styles.bannerVersion}>v2.0.0 Stable</span>
           </div>
 
           {/* Active Pane */}
-          <div className="animate-fadeIn">
+          <div className={styles.content}>
             {renderActiveTab()}
           </div>
         </div>

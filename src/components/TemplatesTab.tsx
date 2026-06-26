@@ -1,65 +1,48 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, Copy, Star, ChevronDown, ChevronRight, Save, Eye, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Trash2, Copy, Star, ChevronDown, ChevronRight, Save, Eye, X, Upload, Check } from 'lucide-react'
+import s from './TemplatesTab.module.css'
 
 interface LandingPageTemplate {
-  id: string
-  name: string
-  is_default: boolean
-  brand_title: string | null
-  brand_logo_url: string | null
-  brand_color: string | null
-  badge_text: string | null
-  hero_heading: string | null
-  hero_subheading: string | null
-  hero_body: string | null
-  cta_text: string | null
-  cta_url: string | null
-  cta_description: string | null
-  calendar_embed_code: string | null
-  calendar_heading: string | null
-  social_proof_heading: string | null
-  social_proof_logos: string[] | null
-  why_matters_heading: string | null
-  why_matters_subheading: string | null
-  why_matters_body: string | null
-  footer_text: string | null
-  footer_powered_by: string | null
-  custom_css: string | null
-  created_at: string
-  updated_at: string
+  id: string; name: string; is_default: boolean; hidden_sections: string[] | null;
+  brand_title: string | null; brand_logo_url: string | null; brand_color: string | null;
+  hero_heading: string | null; hero_subheading: string | null; hero_body: string | null;
+  hero_bg_color: string | null;
+  cta_text: string | null; cta_url: string | null;
+  calendar_embed_code: string | null; calendar_heading: string | null;
+  social_proof_heading: string | null; social_proof_logos: string[] | null;
+  social_proof_bg_color: string | null;
+  why_matters_heading: string | null; why_matters_subheading: string | null; why_matters_body: string | null;
+  why_matters_bg_color: string | null;
+  footer_text: string | null; footer_powered_by: string | null; footer_bg_color: string | null;
+  custom_css: string | null; created_at: string; updated_at: string
 }
 
 const DEFAULT_TEMPLATE: Partial<LandingPageTemplate> = {
-  name: 'New Template',
-  brand_title: 'Capital Acquisition',
-  brand_color: '#4F46E5',
-  badge_text: 'Personalized Video Walkthrough',
-  hero_heading: 'Hey {{first_name}} 👋',
+  name: 'New Template', hidden_sections: [],
+  brand_title: 'Capital Acquisition', brand_logo_url: '/ca-logo.svg', brand_color: '#4F46E5',
+  hero_heading: 'Hey {{first_name}}, I recorded a personalized video for you',
   hero_subheading: 'Tailored for {{company}}',
-  hero_body: 'I put together this personalized video for you and the team at {{company}}.',
-  cta_text: 'Book a 15-Min Call',
-  cta_description: 'Schedule a quick discovery call below:',
-  calendar_heading: 'Schedule a time to chat',
-  social_proof_heading: 'Trusted by growth teams everywhere',
-  social_proof_logos: ['Partner Co.', 'ScaleUp', 'GrowFast', 'NextLevel', 'VentureX'],
+  hero_body: 'I put together this personalized video for you and the team at {{company}}. I think you will find the first 30 seconds especially relevant.',
+  hero_bg_color: '',
+  cta_text: 'Book a 15-Min Call', cta_url: '',
+  calendar_heading: 'Schedule a time to chat', calendar_embed_code: '',
+  social_proof_heading: 'Trusted by growth teams everywhere', social_proof_logos: ['Partner Co.', 'ScaleUp', 'GrowFast', 'NextLevel', 'VentureX'],
+  social_proof_bg_color: '',
   why_matters_heading: "This isn't a generic pitch, {{first_name}}.",
   why_matters_subheading: "It was built specifically for what you're building at {{company}}.",
   why_matters_body: 'We researched your company, identified the key opportunity, and recorded this video so you can see the fit in under 60 seconds.',
+  why_matters_bg_color: '',
   footer_text: '© {{year}} {{brand_title}}. All rights reserved.',
   footer_powered_by: 'Powered by {{brand_title}}',
-  is_default: false,
+  footer_bg_color: '',
+  is_default: false
 }
 
 function applyVars(text: string | null, firstName = 'John', company = 'Acme Corp', brandTitle = 'Capital Acquisition'): string {
   if (!text) return ''
-  const year = String(new Date().getFullYear())
-  return text
-    .replace(/\{\{first_name\}\}/g, firstName)
-    .replace(/\{\{company\}\}/g, company)
-    .replace(/\{\{brand_title\}\}/g, brandTitle)
-    .replace(/\{\{year\}\}/g, year)
+  return text.replace(/\{\{first_name\}\}/g, firstName).replace(/\{\{company\}\}/g, company).replace(/\{\{brand_title\}\}/g, brandTitle).replace(/\{\{year\}\}/g, String(new Date().getFullYear()))
 }
 
 export default function TemplatesTab() {
@@ -69,12 +52,11 @@ export default function TemplatesTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    branding: true, hero: false, cta: false, calendar: false, social: false, why: false, footer: false, css: false,
-  })
-  const [previewFirstName, setPreviewFirstName] = useState('John')
-  const [previewCompany, setPreviewCompany] = useState('Acme Corp')
-  const [showPreview, setShowPreview] = useState(false)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ branding: true, hero: false, cta: false, calendar: false, social: false, why: false, footer: false })
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const [previewMode, setPreviewMode] = useState<'off' | 'desktop' | 'mobile'>('off')
+  const [previewVideoId, setPreviewVideoId] = useState<string | null>(null)
 
   useEffect(() => { fetchTemplates() }, [])
 
@@ -85,541 +67,311 @@ export default function TemplatesTab() {
       if (res.ok) {
         const data = await res.json()
         setTemplates(data)
-        if (data.length > 0 && !selected) {
-          setSelected(data[0])
-        }
+        if (data.length > 0 && !selected) { setSelected(data[0]); setEditing(data[0]) }
       }
-    } catch { /* ignore */ }
+    } catch {}
     setLoading(false)
   }
 
-  const showMsg = (type: 'ok' | 'error', text: string) => {
-    setMessage({ type, text })
-    setTimeout(() => setMessage(null), 3000)
-  }
+  const showMsg = (type: 'ok' | 'error', text: string) => { setMessage({ type, text }); setTimeout(() => setMessage(null), 3000) }
 
   const createTemplate = async () => {
     try {
-      const res = await fetch('/api/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(DEFAULT_TEMPLATE),
-      })
-      if (res.ok) {
-        const t = await res.json()
-        setTemplates(prev => [t, ...prev])
-        setSelected(t)
-        setEditing(t)
-        showMsg('ok', 'Template created')
-      }
-    } catch {
-      showMsg('error', 'Failed to create template')
-    }
+      const res = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(DEFAULT_TEMPLATE) })
+      if (res.ok) { const t = await res.json(); setTemplates(prev => [t, ...prev]); setSelected(t); setEditing(t); showMsg('ok', 'Template created') }
+    } catch { showMsg('error', 'Failed') }
   }
 
   const saveTemplate = async () => {
     if (!editing) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/templates/${editing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editing),
-      })
+      const res = await fetch(`/api/templates/${editing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing) })
       if (res.ok) {
         const updated = await res.json()
         setTemplates(prev => prev.map(t => t.id === updated.id ? updated : t))
-        setSelected(updated)
-        setEditing(updated)
-        showMsg('ok', 'Template saved')
+        setSelected(updated); setEditing(updated); showMsg('ok', 'Saved')
       }
-    } catch {
-      showMsg('error', 'Failed to save template')
-    }
+    } catch { showMsg('error', 'Failed') }
     setSaving(false)
   }
 
   const duplicateTemplate = async (t: LandingPageTemplate) => {
     try {
-      const res = await fetch('/api/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...t, id: undefined, name: `${t.name} (Copy)`, is_default: false }),
-      })
-      if (res.ok) {
-        const dup = await res.json()
-        setTemplates(prev => [dup, ...prev])
-        showMsg('ok', 'Template duplicated')
-      }
-    } catch {
-      showMsg('error', 'Failed to duplicate')
-    }
+      const res = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...t, id: undefined, name: `${t.name} (Copy)`, is_default: false }) })
+      if (res.ok) { const dup = await res.json(); setTemplates(prev => [dup, ...prev]); showMsg('ok', 'Duplicated') }
+    } catch { showMsg('error', 'Failed') }
   }
 
   const deleteTemplate = async (id: string) => {
     try {
       const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setTemplates(prev => prev.filter(t => t.id !== id))
-        if (selected?.id === id) {
-          setSelected(templates.length > 1 ? templates.find(t => t.id !== id)! : null)
-          setEditing(null)
-        }
-        showMsg('ok', 'Template deleted')
-      }
-    } catch {
-      showMsg('error', 'Failed to delete')
-    }
+      if (res.ok) { setTemplates(prev => prev.filter(t => t.id !== id)); if (selected?.id === id) { setSelected(templates.find(t => t.id !== id) || null); setEditing(null) }; showMsg('ok', 'Deleted') }
+    } catch { showMsg('error', 'Failed') }
   }
 
   const setDefault = async (id: string) => {
     try {
-      // Unset all first
-      for (const t of templates) {
-        if (t.is_default) {
-          await fetch(`/api/templates/${t.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_default: false }),
-          })
+      for (const t of templates) { if (t.is_default) await fetch(`/api/templates/${t.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_default: false }) }) }
+      const res = await fetch(`/api/templates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_default: true }) })
+      if (res.ok) { const updated = await res.json(); setTemplates(prev => prev.map(t => ({ ...t, is_default: t.id === updated.id }))); if (editing?.id === id) setEditing(updated); showMsg('ok', 'Default updated') }
+    } catch { showMsg('error', 'Failed') }
+  }
+
+  const toggleSection = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
+  const updateField = (field: string, value: any) => { if (editing) setEditing(prev => prev ? { ...prev, [field]: value } : null) }
+  const updateLogoArray = (value: string) => updateField('social_proof_logos', value.split(',').map(s => s.trim()).filter(Boolean))
+
+  const handleLogoUpload = async (file: File) => {
+    setUploadingLogo(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('bucket', 'images')
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: form })
+      const data = await uploadRes.json()
+      if (data.url) { updateField('brand_logo_url', data.url); showMsg('ok', 'Logo uploaded') }
+      else { showMsg('error', data.error || 'Upload failed') }
+    } catch (err: any) { showMsg('error', err.message || 'Failed to upload logo') }
+    setUploadingLogo(false)
+  }
+
+  const handleTogglePreview = async () => {
+    if (previewMode !== 'off') {
+      setPreviewMode('off')
+      return
+    }
+    if (!previewVideoId) {
+      try {
+        const res = await fetch('/api/video-recordings')
+        const videos = await res.json()
+        if (videos && videos.length > 0) {
+          setPreviewVideoId(videos[0].id)
+        } else {
+          alert('No video recordings found. Upload a video in the Video tab first.')
+          return
         }
+      } catch {
+        alert('Could not load videos. Upload a video in the Video tab first.')
+        return
       }
-      // Set new default
-      const res = await fetch(`/api/templates/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_default: true }),
-      })
-      if (res.ok) {
-        const updated = await res.json()
-        setTemplates(prev => prev.map(t => ({ ...t, is_default: t.id === updated.id })))
-        if (selected?.id === id) setSelected(updated)
-        if (editing?.id === id) setEditing(prev => prev ? { ...prev, is_default: true } : null)
-        showMsg('ok', 'Default template updated')
-      }
-    } catch {
-      showMsg('error', 'Failed to set default')
     }
+    setPreviewMode('desktop')
   }
 
-  const toggleSection = (key: string) => {
-    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  const updateField = (field: keyof LandingPageTemplate, value: any) => {
-    if (!editing) return
-    setEditing(prev => prev ? { ...prev, [field]: value } : null)
-  }
-
-  const updateLogoArray = (value: string) => {
-    updateField('social_proof_logos', value.split(',').map(s => s.trim()).filter(Boolean))
-  }
-
-  const previewSection = (field: keyof LandingPageTemplate) => {
-    if (!editing) return ''
-    const val = editing[field]
-    if (Array.isArray(val)) return val.join(', ')
-    return applyVars(val as string | null, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')
-  }
-
-  const Section = ({ title, field, type, rows, children }: {
-    title: string
-    field?: keyof LandingPageTemplate
-    type?: 'text' | 'textarea' | 'color' | 'custom'
-    rows?: number
-    children?: React.ReactNode
-  }) => {
-    if (type === 'custom') {
-      return (
-        <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">{title}</label>
-          {children}
-        </div>
-      )
-    }
+  const Section = ({ title, field, type, rows, children }: { title: string; field?: string; type?: 'text' | 'textarea' | 'color' | 'custom'; rows?: number; children?: React.ReactNode }) => {
+    if (type === 'custom') return <div><label className={s.sectionLabel}>{title}</label>{children}</div>
+    const val = editing && field ? (editing as any)[field] : undefined
     return (
       <div>
-        <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">{title}</label>
+        <label className={s.sectionLabel}>{title}</label>
         {type === 'color' ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={(editing && field ? (editing[field] as string) : '#4F46E5') || '#4F46E5'}
-              onChange={(e) => field && updateField(field, e.target.value)}
-              className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border border-slate-700"
-            />
-            <input
-              type="text"
-              value={(editing && field ? (editing[field] as string) : '#4F46E5') || '#4F46E5'}
-              onChange={(e) => field && updateField(field, e.target.value)}
-              className="flex-1 px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-sm text-slate-200"
-            />
+          <div className={s.colorRow}>
+            <input type="color" value={val || '#4F46E5'} onChange={(e) => field && updateField(field, e.target.value)} className={s.colorInput} />
+            <input type="text" value={val || '#4F46E5'} onChange={(e) => field && updateField(field, e.target.value)} className={s.colorText} />
           </div>
         ) : type === 'textarea' ? (
-          <textarea
-            value={editing && field ? (editing[field] as string || '') : ''}
-            onChange={(e) => field && updateField(field, e.target.value)}
-            rows={rows || 3}
-            className="w-full px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-sm text-slate-200 resize-y"
-          />
+          <textarea defaultValue={val || ''} onChange={(e) => field && updateField(field, e.target.value)} rows={rows || 3} className={s.textarea} />
         ) : (
-          <input
-            type="text"
-            value={editing && field ? (editing[field] as string || '') : ''}
-            onChange={(e) => field && updateField(field, e.target.value)}
-            className="w-full px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-sm text-slate-200"
-          />
-        )}
-        {field && editing && (
-          <p className="text-xs text-slate-500 mt-1 italic">
-            Preview: {previewSection(field)}
-          </p>
+          <input type="text" defaultValue={val || ''} onChange={(e) => field && updateField(field, e.target.value)} className={s.input} />
         )}
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 p-1">
-      <div className="flex items-center justify-between">
+    <div className={s.container}>
+      <div className={s.header}>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-heading flex items-center gap-2">
-            <Eye className="w-7 h-7 text-indigo-400" />
-            Landing Page Templates
-          </h2>
-          <p className="text-slate-400 text-sm mt-1">
-            Edit sections of your landing pages. Changes affect all pages using this template.
-          </p>
+          <h2 className={s.title}><Eye className={s.titleIcon} /> Landing Page Templates</h2>
+          <p className={s.subtitle}>Customize sections and style for your landing pages.</p>
         </div>
-        <div className="flex items-center gap-2">
-          {message && (
-            <span className={`text-xs px-3 py-1.5 rounded-lg font-medium ${
-              message.type === 'ok' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
-            }`}>
-              {message.text}
-            </span>
-          )}
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-              showPreview ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-400' : 'border-slate-700/50 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            Preview
-          </button>
-          <button onClick={createTemplate} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-bold rounded-xl border border-emerald-500/30 transition-all">
-            <Plus className="w-3.5 h-3.5" />
-            New Template
-          </button>
+        <div className={s.headerActions}>
+          {message && <span className={`${s.message} ${message.type === 'ok' ? s.messageOk : s.messageErr}`}>{message.text}</span>}
+          <button onClick={handleTogglePreview} className={s.previewBtn}><Eye className={s.iconSm} /> {previewMode !== 'off' ? 'Close Preview' : 'Preview'}</button>
+          <button onClick={createTemplate} className={s.newBtn}><Plus className={s.iconSm} /> New</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Left: Template List */}
-        <div className="xl:col-span-4 glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-          <div className="p-3 border-b border-slate-800/60 bg-slate-900/25">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Templates ({templates.length})
-            </span>
-          </div>
-          <div className="divide-y divide-slate-800/40 max-h-[70vh] overflow-y-auto">
-            {loading ? (
-              <div className="p-8 text-center text-slate-500 text-sm">Loading...</div>
-            ) : templates.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-sm">No templates yet. Click &ldquo;New Template&rdquo; to start.</div>
-            ) : templates.map(t => {
-              const isSelected = selected?.id === t.id
-              return (
-                <div
-                  key={t.id}
-                  onClick={() => { setSelected(t); setEditing(t) }}
-                  className={`p-4 cursor-pointer transition-all ${
-                    isSelected ? 'bg-indigo-600/10 border-l-4 border-indigo-500' : 'hover:bg-slate-900/30 border-l-4 border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-heading text-sm flex items-center gap-2">
-                      {t.name}
-                      {t.is_default && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />}
-                    </h4>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); duplicateTemplate(t) }}
-                        className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-all"
-                        title="Duplicate"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                      {!t.is_default && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDefault(t.id) }}
-                          className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-yellow-500 transition-all"
-                          title="Set as default"
-                        >
-                          <Star className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); if (confirm('Delete this template?')) deleteTemplate(t.id) }}
-                        className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-red-400 transition-all"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+      <div className={s.grid}>
+        {/* Template List */}
+        <div className={s.sidebar}>
+          <div className={s.sidebarHeader}><span className={s.sidebarTitle}>Templates ({templates.length})</span></div>
+          <div className={s.templateList}>
+            {loading ? <div className={s.empty}>Loading...</div> : templates.length === 0 ? <div className={s.empty}>No templates yet.</div> : templates.map(t => (
+              <div key={t.id} onClick={() => { setSelected(t); setEditing(t) }} className={`${s.templateItem} ${selected?.id === t.id ? s.templateItemActive : ''}`}>
+                <div className={s.templateHeader}>
+                  <h4 className={s.templateName}>{t.name} {t.is_default && <Star className={s.starIcon} />}</h4>
+                  <div className={s.templateActions}>
+                    <button onClick={(e) => { e.stopPropagation(); duplicateTemplate(t) }} className={s.templateActionBtn} title="Duplicate"><Copy className={s.iconXs} /></button>
+                    {!t.is_default && <button onClick={(e) => { e.stopPropagation(); setDefault(t.id) }} className={s.templateActionBtn} title="Set default"><Star className={s.iconXs} /></button>}
+                    <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete?')) deleteTemplate(t.id) }} className={s.templateActionBtn} title="Delete"><Trash2 className={s.iconXs} /></button>
+                    <button onClick={async (e) => { e.stopPropagation(); try { const res = await fetch('/api/video-recordings'); const vids = await res.json(); if (vids && vids.length > 0) { window.open(`${window.location.origin}/landing/${vids[0].id}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${t.id}`, '_blank') } else { alert('No video recordings found. Upload a video first.') } } catch { alert('Could not load videos.') } }} className={s.templateActionBtn} title="Open in new tab"><Eye className={s.iconXs} /></button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1 truncate">
-                    {t.hero_heading || 'No hero heading'}
-                  </p>
                 </div>
-              )
-            })}
+                <p className={s.templatePreview}>{t.hero_heading || 'No heading'}</p>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Right: Editor */}
-        <div className="xl:col-span-8 space-y-4">
+        {/* Editor */}
+        <div className={s.editor}>
           {!editing ? (
-            <div className="glass-panel rounded-2xl border border-slate-800/60 p-12 text-center">
-              <Eye className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">Select a template to edit, or create a new one.</p>
-            </div>
+            <div className={s.empty}><Eye className={s.emptyIcon} /><p>Select a template to edit, or create a new one.</p></div>
           ) : (
             <>
-              {/* Name + Save bar */}
-              <div className="glass-panel rounded-2xl border border-slate-800/60 p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={editing.name}
-                    onChange={(e) => updateField('name', e.target.value)}
-                    className="bg-transparent text-heading font-bold text-lg border-b border-transparent hover:border-slate-600 focus:border-indigo-500 outline-none px-1"
-                  />
-                  {editing.is_default && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 font-bold uppercase">
-                      Default
-                    </span>
-                  )}
+              <div className={s.editorHeader}>
+                <div className={s.editorTitleRow}>
+                  <input type="text" defaultValue={editing.name} onBlur={(e) => updateField('name', e.target.value)} className={s.nameInput} placeholder="Template name" />
+                  {editing.is_default && <span className={s.defaultBadge}>Default</span>}
                 </div>
-                <button
-                  onClick={saveTemplate}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 text-xs font-bold rounded-xl border border-indigo-500/30 transition-all disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
+                <button onClick={saveTemplate} disabled={saving} className={s.saveBtn}><Save className={s.iconSm} /> {saving ? 'Saving...' : 'Save'}</button>
               </div>
 
-              {/* Editable sections */}
-              <div className="space-y-3">
+              <div className={s.sections}>
+                {/* Section Visibility */}
+                <div className={s.sectionCard}>
+                  <div className={s.sectionToggle}><h4 className={s.sectionTitle}>Section Visibility</h4></div>
+                  <div className={s.sectionContent}>
+                    <div className={s.toggleGrid}>
+                      {['hero', 'cta', 'social_proof', 'why_matters', 'calendar', 'footer'].map(section => {
+                        const hidden = Array.isArray(editing.hidden_sections) ? editing.hidden_sections : []
+                        return (
+                          <label key={section} className={s.toggleLabel}>
+                            <input type="checkbox" checked={!hidden.includes(section)} onChange={(e) => {
+                              const newHidden = e.target.checked ? hidden.filter((s: string) => s !== section) : [...hidden, section]
+                              updateField('hidden_sections', newHidden)
+                            }} className={s.checkbox} />
+                            <span>{section.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Branding */}
-                <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-                  <button onClick={() => toggleSection('branding')} className="w-full flex items-center justify-between p-4 bg-slate-900/25 text-left">
-                    <h4 className="text-sm font-bold text-heading">Branding</h4>
-                    {expandedSections.branding ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                  </button>
+                <div className={s.sectionCard}>
+                  <button onClick={() => toggleSection('branding')} className={s.sectionToggle}><h4 className={s.sectionTitle}>Branding</h4>{expandedSections.branding ? <ChevronDown className={s.iconSm} /> : <ChevronRight className={s.iconSm} />}</button>
                   {expandedSections.branding && (
-                    <div className="p-4 space-y-3 border-t border-slate-800/40">
+                    <div className={s.sectionContent}>
                       <Section title="Brand Title" field="brand_title" />
-                      <Section title="Logo URL" field="brand_logo_url" />
+                      <div>
+                        <label className={s.sectionLabel}>Logo</label>
+                        <div className={s.logoUpload} onClick={() => logoInputRef.current?.click()}>
+                          <input ref={logoInputRef} type="file" accept="image/*" className={s.hidden} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = '' }} />
+                          {uploadingLogo ? <div className={s.uploading}><div className={s.spinner} /> Uploading...</div>
+                            : editing.brand_logo_url ? <div className={s.logoPreview}><img src={editing.brand_logo_url} alt="Logo" className={s.logoImg} /><span className={s.logoChange}>Change</span></div>
+                            : <div className={s.uploadPlaceholder}><Upload className={s.uploadIcon} /><span>Click to upload logo</span><span className={s.uploadHint}>PNG, JPG, SVG</span></div>
+                          }
+                        </div>
+                      </div>
                       <Section title="Brand Color" field="brand_color" type="color" />
                     </div>
                   )}
                 </div>
 
-                {/* Badge + Hero */}
-                <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-                  <button onClick={() => toggleSection('hero')} className="w-full flex items-center justify-between p-4 bg-slate-900/25 text-left">
-                    <h4 className="text-sm font-bold text-heading">Badge &amp; Hero</h4>
-                    {expandedSections.hero ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                  </button>
+                {/* Hero */}
+                <div className={s.sectionCard}>
+                  <button onClick={() => toggleSection('hero')} className={s.sectionToggle}><h4 className={s.sectionTitle}>Hero</h4>{expandedSections.hero ? <ChevronDown className={s.iconSm} /> : <ChevronRight className={s.iconSm} />}</button>
                   {expandedSections.hero && (
-                    <div className="p-4 space-y-3 border-t border-slate-800/40">
-                      <Section title="Badge Text" field="badge_text" />
-                      <Section title="Hero Heading" field="hero_heading" />
-                      <Section title="Hero Subheading" field="hero_subheading" />
-                      <Section title="Hero Body" field="hero_body" type="textarea" rows={4} />
+                    <div className={s.sectionContent}>
+                      <Section title="Heading" field="hero_heading" />
+                      <Section title="Subheading" field="hero_subheading" />
+                      <Section title="Body" field="hero_body" type="textarea" rows={3} />
+                      <Section title="Text Color" field="hero_text_color" type="color" />
+                      <Section title="Background Color" field="hero_bg_color" type="color" />
                     </div>
                   )}
                 </div>
 
                 {/* CTA */}
-                <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-                  <button onClick={() => toggleSection('cta')} className="w-full flex items-center justify-between p-4 bg-slate-900/25 text-left">
-                    <h4 className="text-sm font-bold text-heading">CTA</h4>
-                    {expandedSections.cta ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                  </button>
+                <div className={s.sectionCard}>
+                  <button onClick={() => toggleSection('cta')} className={s.sectionToggle}><h4 className={s.sectionTitle}>Call to Action</h4>{expandedSections.cta ? <ChevronDown className={s.iconSm} /> : <ChevronRight className={s.iconSm} />}</button>
                   {expandedSections.cta && (
-                    <div className="p-4 space-y-3 border-t border-slate-800/40">
-                      <Section title="CTA Text" field="cta_text" />
-                      <Section title="CTA URL" field="cta_url" />
-                      <Section title="CTA Description" field="cta_description" type="textarea" rows={2} />
-                      <Section title="Calendar Heading" field="calendar_heading" />
-                      <Section title="Calendar Embed Code" field="calendar_embed_code" type="textarea" rows={4} />
+                    <div className={s.sectionContent}>
+                      <Section title="Button Text" field="cta_text" />
+                      <Section title="Button Link (Calendly URL or any URL)" field="cta_url" />
+                      <Section title="Calendly Embed Code (optional)" field="calendar_embed_code" type="textarea" rows={4} />
+                      <p className={s.hint}>Paste Calendly embed code here, or put a direct Calendly link in the Button Link field above.</p>
+                      <Section title="Background Color" field="cta_bg_color" type="color" />
                     </div>
                   )}
                 </div>
 
                 {/* Social Proof */}
-                <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-                  <button onClick={() => toggleSection('social')} className="w-full flex items-center justify-between p-4 bg-slate-900/25 text-left">
-                    <h4 className="text-sm font-bold text-heading">Social Proof</h4>
-                    {expandedSections.social ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                  </button>
+                <div className={s.sectionCard}>
+                  <button onClick={() => toggleSection('social')} className={s.sectionToggle}><h4 className={s.sectionTitle}>Social Proof</h4>{expandedSections.social ? <ChevronDown className={s.iconSm} /> : <ChevronRight className={s.iconSm} />}</button>
                   {expandedSections.social && (
-                    <div className="p-4 space-y-3 border-t border-slate-800/40">
+                    <div className={s.sectionContent}>
                       <Section title="Heading" field="social_proof_heading" />
-                      <Section title="Logo Names (comma separated)" field="social_proof_logos" type="custom">
-                        <textarea
-                          value={(editing.social_proof_logos || []).join(', ')}
-                          onChange={(e) => updateLogoArray(e.target.value)}
-                          rows={3}
-                          className="w-full px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-sm text-slate-200 resize-y"
-                        />
-                        <p className="text-xs text-slate-500 mt-1">Enter company names or logo URLs separated by commas</p>
+                      <Section title="Company Names (comma separated)" field="social_proof_logos" type="custom">
+                        <textarea defaultValue={(editing.social_proof_logos || []).join(', ')} onChange={(e) => updateLogoArray(e.target.value)} rows={2} className={s.textarea} placeholder="Partner Co., ScaleUp, GrowFast" />
                       </Section>
+                      <Section title="Text Color" field="social_proof_text_color" type="color" />
+                      <Section title="Background Color" field="social_proof_bg_color" type="color" />
                     </div>
                   )}
                 </div>
 
-                {/* Why Matters */}
-                <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-                  <button onClick={() => toggleSection('why')} className="w-full flex items-center justify-between p-4 bg-slate-900/25 text-left">
-                    <h4 className="text-sm font-bold text-heading">Why This Matters</h4>
-                    {expandedSections.why ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                  </button>
+                {/* Why This Matters */}
+                <div className={s.sectionCard}>
+                  <button onClick={() => toggleSection('why')} className={s.sectionToggle}><h4 className={s.sectionTitle}>Why This Matters</h4>{expandedSections.why ? <ChevronDown className={s.iconSm} /> : <ChevronRight className={s.iconSm} />}</button>
                   {expandedSections.why && (
-                    <div className="p-4 space-y-3 border-t border-slate-800/40">
+                    <div className={s.sectionContent}>
                       <Section title="Heading" field="why_matters_heading" />
                       <Section title="Subheading" field="why_matters_subheading" />
-                      <Section title="Body" field="why_matters_body" type="textarea" rows={4} />
+                      <Section title="Body" field="why_matters_body" type="textarea" rows={3} />
+                      <Section title="Text Color" field="why_matters_text_color" type="color" />
+                      <Section title="Background Color" field="why_matters_bg_color" type="color" />
                     </div>
                   )}
                 </div>
 
                 {/* Footer */}
-                <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-                  <button onClick={() => toggleSection('footer')} className="w-full flex items-center justify-between p-4 bg-slate-900/25 text-left">
-                    <h4 className="text-sm font-bold text-heading">Footer</h4>
-                    {expandedSections.footer ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                  </button>
+                <div className={s.sectionCard}>
+                  <button onClick={() => toggleSection('footer')} className={s.sectionToggle}><h4 className={s.sectionTitle}>Footer</h4>{expandedSections.footer ? <ChevronDown className={s.iconSm} /> : <ChevronRight className={s.iconSm} />}</button>
                   {expandedSections.footer && (
-                    <div className="p-4 space-y-3 border-t border-slate-800/40">
+                    <div className={s.sectionContent}>
                       <Section title="Footer Text" field="footer_text" />
                       <Section title="Powered By" field="footer_powered_by" />
+                      <Section title="Text Color" field="footer_text_color" type="color" />
+                      <Section title="Background Color" field="footer_bg_color" type="color" />
                     </div>
                   )}
                 </div>
 
-                {/* Custom CSS */}
-                <div className="glass-panel rounded-2xl border border-slate-800/60 overflow-hidden">
-                  <button onClick={() => toggleSection('css')} className="w-full flex items-center justify-between p-4 bg-slate-900/25 text-left">
-                    <h4 className="text-sm font-bold text-heading">Custom CSS</h4>
-                    {expandedSections.css ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-                  </button>
-                  {expandedSections.css && (
-                    <div className="p-4 border-t border-slate-800/40">
-                      <Section title="CSS" field="custom_css" type="custom">
-                        <textarea
-                          value={editing.custom_css || ''}
-                          onChange={(e) => updateField('custom_css', e.target.value)}
-                          rows={6}
-                          className="w-full px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-700/50 text-sm text-slate-200 font-mono resize-y"
-                          placeholder=".hero { background: ... }"
-                        />
-                      </Section>
+                {/* Preview Panel */}
+                {previewMode !== 'off' && previewVideoId && (
+                  <div className={s.previewPanel}>
+                    <div className={s.previewControls}>
+                      <span className={s.previewLabel}>Landing Page Preview</span>
+                      <div className={s.previewToggle}>
+                        <button className={`${s.previewToggleBtn} ${previewMode === 'desktop' ? s.previewToggleActive : ''}`} onClick={() => setPreviewMode('desktop')}>Desktop</button>
+                        <button className={`${s.previewToggleBtn} ${previewMode === 'mobile' ? s.previewToggleActive : ''}`} onClick={() => setPreviewMode('mobile')}>Mobile</button>
+                      </div>
+                      <button className={s.closePreviewBtn} onClick={() => setPreviewMode('off')}>✕</button>
                     </div>
-                  )}
-                </div>
+                    {previewMode === 'mobile' ? (
+                      <div className={s.mobilePreview}>
+                        <div className={s.phoneFrame}>
+                          <div className={s.phoneNotch}><div className={s.phoneNotchDot} /></div>
+                          <iframe src={`/landing/${previewVideoId}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}`} title="Mobile Preview" className={s.phoneIframe} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={s.desktopPreview}>
+                        <iframe src={`/landing/${previewVideoId}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}`} title="Desktop Preview" className={s.desktopIframe} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
         </div>
       </div>
-
-      {/* Preview Modal */}
-      {showPreview && editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowPreview(false)}>
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-heading">Live Preview</h3>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 text-xs text-slate-400">
-                  <span>Name:</span>
-                  <input
-                    type="text"
-                    value={previewFirstName}
-                    onChange={(e) => setPreviewFirstName(e.target.value)}
-                    className="w-20 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-200"
-                  />
-                  <span>Company:</span>
-                  <input
-                    type="text"
-                    value={previewCompany}
-                    onChange={(e) => setPreviewCompany(e.target.value)}
-                    className="w-24 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-200"
-                  />
-                </div>
-                <button onClick={() => setShowPreview(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4 text-sm">
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-1">Badge</div>
-                <div className="text-slate-200">{applyVars(editing.badge_text, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}</div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-1">Hero Section</div>
-                <div className="text-lg font-bold" style={{ color: editing.brand_color || '#4F46E5' }}>
-                  {applyVars(editing.hero_heading, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-                <div className="text-slate-300 font-medium mt-1">
-                  {applyVars(editing.hero_subheading, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-                <div className="text-slate-400 mt-2">
-                  {applyVars(editing.hero_body, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-1">CTA</div>
-                <div className="flex items-center gap-2">
-                  <span className="px-4 py-2 rounded-xl text-sm font-bold" style={{ backgroundColor: editing.brand_color || '#4F46E5', color: '#fff' }}>
-                    {applyVars(editing.cta_text, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                  </span>
-                </div>
-                <div className="text-slate-400 mt-2 text-xs">
-                  {applyVars(editing.cta_description, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-1">Why Matters</div>
-                <div className="text-slate-200 font-medium">
-                  {applyVars(editing.why_matters_heading, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-                <div className="text-slate-300 text-xs mt-1">
-                  {applyVars(editing.why_matters_subheading, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-                <div className="text-slate-400 text-xs mt-2">
-                  {applyVars(editing.why_matters_body, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <div className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-1">Footer</div>
-                <div className="text-slate-500 text-xs">
-                  {applyVars(editing.footer_text, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-                <div className="text-slate-600 text-[10px] mt-1">
-                  {applyVars(editing.footer_powered_by, previewFirstName, previewCompany, editing.brand_title || 'Capital Acquisition')}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
