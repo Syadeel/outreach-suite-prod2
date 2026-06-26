@@ -65,7 +65,7 @@
   transition: all 0.2s ease;
 }
 
-.navCta:hover { background: #2d2d4e; transform: translateY(-1px); }
+.navCta:hover { background: #2d2d4e; transform: translateY(-1px); color: #ffffff; }
 .navCtaIcon { width: 1rem; height: 1rem; }
 @media (min-width: 640px) { .navCta { display: inline-flex; } }
 
@@ -176,7 +176,7 @@
 }
 
 @media (min-width: 1024px) { .mobileCta { display: none; } }
-.mobileCta:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+.mobileCta:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); color: #ffffff; }
 .mobileCta:active { transform: translateY(0); }
 .mobileCtaIcon { width: 1rem; height: 1rem; }
 
@@ -303,7 +303,7 @@
   color: #ffffff; font-weight: 700; font-size: 0.875rem; text-decoration: none;
   transition: all 0.2s ease; background: #1a1a2e;
 }
-.desktopCtaButton:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+.desktopCtaButton:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); color: #ffffff; }
 .desktopCtaButton:active { transform: translateY(0); }
 .desktopCtaIcon { width: 1rem; height: 1rem; }
 .desktopCtaDivider { width: 1px; background: #e5e7eb; }
@@ -378,7 +378,7 @@
   font-weight: 700; font-size: 1rem; text-decoration: none;
   transition: all 0.2s ease; background: #1a1a2e;
 }
-.calendarCta:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+.calendarCta:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); color: #ffffff; }
 .calendarCta:active { transform: translateY(0); }
 .calendarCtaIcon { width: 1rem; height: 1rem; }
 
