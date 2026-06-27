@@ -283,6 +283,7 @@ export default function TemplatesTab() {
                     <div className={s.sectionContent}>
                       <Section title="Background Color" field="nav_bg_color" type="color" />
                       <Section title="Text Color" field="nav_text_color" type="color" />
+                      <Section title="Button Color" field="cta_bg_color" type="color" />
                     </div>
                   )}
                 </div>
@@ -297,6 +298,7 @@ export default function TemplatesTab() {
                       <Section title="Body" field="hero_body" type="textarea" rows={3} />
                       <Section title="Text Color" field="hero_text_color" type="color" />
                       <Section title="Background Color" field="hero_bg_color" type="color" />
+                      <Section title="Button Color" field="cta_bg_color" type="color" />
                     </div>
                   )}
                 </div>
