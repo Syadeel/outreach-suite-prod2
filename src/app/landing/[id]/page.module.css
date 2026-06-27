@@ -471,16 +471,26 @@
   border-radius: 16px;
   overflow: hidden;
 }
-.previewMobile .videoPlayer {
+.previewMobile .videoCircle {
+  position: relative !important;
+  top: auto;
+  left: auto;
+  transform: none;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: 12px;
+  pointer-events: auto;
 }
 .previewMobile .videoCircleVideo {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.previewMobile .videoCircleInner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 11;
 }
 .previewMobile .nav { padding: 0.5rem 1rem; }
 .previewMobile .navBrandName { font-size: 0.875rem; }

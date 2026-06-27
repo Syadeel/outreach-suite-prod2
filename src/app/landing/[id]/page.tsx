@@ -88,13 +88,6 @@ export default function LandingPage({ params }: { params: { id: string } }) {
 
   // UI
   const [ctaVisible, setCtaVisible] = useState(false);
-  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
-  const [isPreview, setIsPreview] = useState(false);
-
-  // Check if preview mode on mount
-  useEffect(() => {
-    if (window.location.search.includes('preview=true')) setIsPreview(true);
-  }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const watchStarted = useRef(false);
@@ -332,28 +325,20 @@ export default function LandingPage({ params }: { params: { id: string } }) {
   /*  RENDER                                                           */
   /* ================================================================ */
   return (
-    <div className={`${styles.page} landing-page ${isPreview && viewMode === 'mobile' ? styles.previewMobile : ''}`}>
-
-      {/* ---- VIEW MODE TOGGLE (only in preview mode) ---- */}
-      {isPreview && (
-        <div className={styles.viewToggle}>
-          <button className={`${styles.viewToggleBtn} ${viewMode === 'desktop' ? styles.viewToggleActive : ''}`} onClick={() => setViewMode('desktop')}>Desktop</button>
-          <button className={`${styles.viewToggleBtn} ${viewMode === 'mobile' ? styles.viewToggleActive : ''}`} onClick={() => setViewMode('mobile')}>Mobile</button>
-        </div>
-      )}
+    <div className={`${styles.page} landing-page`}>
 
       {/* ---- NAV BAR ---- */}
       <nav className={styles.nav} style={{ background: tpl('nav_bg_color') || undefined, color: tpl('nav_text_color') || undefined }}>
         <div className={styles.navContent}>
           <div className={styles.navBrand}>
             <img src="https://wxxjiehgcjrmkbatkvsu.supabase.co/storage/v1/object/public/images/images/images_1782500392085.png" alt={brandTitle} width={32} height={32} className={styles.navLogo} style={{ borderRadius: '4px', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).src = '/ca-logo.svg' }} />
-            <span className={styles.navBrandName}>{brandTitle}</span>
+            <span className={styles.navBrandName} style={{ color: tpl('nav_text_color') || undefined }}>{brandTitle}</span>
           </div>
           {ctaVisible && (
             <a
               href="#schedule"
               className={styles.navCta}
-              style={{ background: tpl('cta_bg_color') || `linear-gradient(135deg, ${brandColor}, ${brandColor}cc)` }}
+              style={{ background: tpl('cta_bg_color') || `linear-gradient(135deg, ${brandColor}, ${brandColor}cc)`, color: tpl('nav_text_color') || undefined }}
             >
               <Calendar className={styles.navCtaIcon} />
               {tpl('cta_text', video.cta_text || 'Book a Call')}
@@ -380,19 +365,19 @@ export default function LandingPage({ params }: { params: { id: string } }) {
             <div className={styles.heroCopy}>
 
               {/* h1 */}
-              <h1 className={styles.heroHeading}>
+              <h1 className={styles.heroHeading} style={{ color: tpl('hero_text_color') || undefined }}>
                 {headingText}
               </h1>
 
               {/* sub */}
               {(tpl('hero_subheading') || lead?.company) && (
-                <p className={styles.heroSubheading}>
+                <p className={styles.heroSubheading} style={{ color: tpl('hero_text_color') || undefined }}>
                   {tpl('hero_subheading', lead?.company ? `Tailored for ${lead.company}` : '')}
                 </p>
               )}
 
               {/* body */}
-              <p className={styles.heroBody}>
+              <p className={styles.heroBody} style={{ color: tpl('hero_text_color') || undefined }}>
                 {bodyText}
               </p>
 
@@ -555,7 +540,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
       {!isSectionHidden('social_proof') && (
       <section className={styles.socialProof} style={{ background: tpl('social_proof_bg_color') || undefined, color: tpl('social_proof_text_color') || undefined }}>
         <div className={styles.socialProofContent}>
-          <p className={styles.socialProofHeading}>{tpl('social_proof_heading', 'Trusted by growth teams everywhere')}</p>
+          <p className={styles.socialProofHeading} style={{ color: tpl('social_proof_text_color') || undefined }}>{tpl('social_proof_heading', 'Trusted by growth teams everywhere')}</p>
           <div className={styles.socialProofLogos}>
             {(tpl('social_proof_logos') ? tpl('social_proof_logos').split(',') : ['Partner Co.', 'ScaleUp', 'GrowFast', 'NextLevel', 'VentureX']).map((name: string) => (
               <span key={name} className={styles.socialProofLogo}>{name}</span>
@@ -577,11 +562,11 @@ export default function LandingPage({ params }: { params: { id: string } }) {
               <Quote className={styles.whyMattersBadgeIcon} />
               Why this matters
             </div>
-            <h2 className={styles.whyMattersHeading}>
+            <h2 className={styles.whyMattersHeading} style={{ color: tpl('why_matters_text_color') || undefined }}>
               {tpl('why_matters_heading', `This isn't a generic pitch${lead?.company ? `, ${prospectName}` : ''}.`)}<br />
-              <span className={styles.whyMattersSubheading}>{tpl('why_matters_subheading', lead?.company ? `It was built specifically for what you're building at ${lead.company}` : 'It was built specifically for your business.')}</span>
+              <span className={styles.whyMattersSubheading} style={{ color: tpl('why_matters_text_color') || undefined }}>{tpl('why_matters_subheading', lead?.company ? `It was built specifically for what you're building at ${lead.company}` : 'It was built specifically for your business.')}</span>
             </h2>
-            <p className={styles.whyMattersBody}>
+            <p className={styles.whyMattersBody} style={{ color: tpl('why_matters_text_color') || undefined }}>
               {tpl('why_matters_body', 'We researched your company, identified the key opportunity, and recorded this video so you can see the fit in under 60 seconds.')}
             </p>
           </div>
@@ -621,9 +606,9 @@ export default function LandingPage({ params }: { params: { id: string } }) {
         <div className={styles.footerContent}>
           <div className={styles.footerBrand}>
             <img src="https://wxxjiehgcjrmkbatkvsu.supabase.co/storage/v1/object/public/images/images/images_1782500392085.png" alt={brandTitle} width={20} height={20} className={styles.footerLogo} style={{ borderRadius: '4px', objectFit: 'contain', opacity: 0.6 }} onError={(e) => { (e.target as HTMLImageElement).src = '/ca-logo.svg' }} />
-            <span className={styles.footerText}>{tpl('footer_text', `© ${new Date().getFullYear()} ${brandTitle}. All rights reserved.`)}</span>
+            <span className={styles.footerText} style={{ color: tpl('footer_text_color') || undefined }}>{tpl('footer_text', `© ${new Date().getFullYear()} ${brandTitle}. All rights reserved.`)}</span>
           </div>
-          <span className={styles.footerPoweredBy}>{tpl('footer_powered_by', `Powered by ${brandTitle}`)}</span>
+          <span className={styles.footerPoweredBy} style={{ color: tpl('footer_text_color') || undefined }}>{tpl('footer_powered_by', `Powered by ${brandTitle}`)}</span>
         </div>
       </footer>
       )}

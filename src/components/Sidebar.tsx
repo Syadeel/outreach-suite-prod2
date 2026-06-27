@@ -10,7 +10,9 @@ import {
   Inbox,
   Video,
   Mic,
-  Sparkles
+  Sparkles,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
@@ -21,6 +23,7 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -61,8 +64,13 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   ];
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div>
+        {/* Toggle Button */}
+        <button className={styles.toggleBtn} onClick={() => setCollapsed(prev => !prev)} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          {collapsed ? <PanelLeftOpen className={styles.toggleIcon} /> : <PanelLeftClose className={styles.toggleIcon} />}
+        </button>
+
         {/* Brand Header */}
         <div className={styles.brand}>
           <img
@@ -75,10 +83,12 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove(styles.hidden); }}
           />
           <span className={`${styles.brandFallback} ${styles.hidden}`}>CA</span>
-          <div className={styles.brandTextCol}>
-            <span className={styles.brandText}>Capital Acquisition</span>
-            <span className={styles.brandSubtext}>Outreach Suite</span>
-          </div>
+          {!collapsed && (
+            <div className={styles.brandTextCol}>
+              <span className={styles.brandText}>Capital Acquisition</span>
+              <span className={styles.brandSubtext}>Outreach Suite</span>
+            </div>
+          )}
         </div>
 
         {/* Navigation Menu */}
@@ -91,9 +101,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={isActive ? styles.navItemActive : styles.navItem}
+                title={collapsed ? item.label : undefined}
               >
                 <Icon className={styles.navIcon} />
-                {item.label}
+                {!collapsed && <span>{item.label}</span>}
               </button>
             );
           })}
@@ -105,27 +116,32 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         <div className={styles.userRow}>
           <div className={styles.userInfo}>
             <div className={styles.userAvatar}>G</div>
-            <div>
-              <h4 className={styles.userName}>Ghost</h4>
-              <p className={styles.userLabel}>Personal Workspace</p>
-            </div>
+            {!collapsed && (
+              <div>
+                <h4 className={styles.userName}>Ghost</h4>
+                <p className={styles.userLabel}>Personal Workspace</p>
+              </div>
+            )}
           </div>
-          <button
-            onClick={toggleTheme}
-            title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} Mode`}
-            className={styles.themeToggle}
-          >
-            {isDarkMode ? <Sun className={styles.themeIcon} /> : <Moon className={styles.themeIcon} />}
-          </button>
+          {!collapsed && (
+            <button
+              onClick={toggleTheme}
+              title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} Mode`}
+              className={styles.themeToggle}
+            >
+              {isDarkMode ? <Sun className={styles.themeIcon} /> : <Moon className={styles.themeIcon} />}
+            </button>
+          )}
         </div>
         <button
           onClick={() => setActiveTab('settings')}
           className={activeTab === 'settings' ? styles.settingsBtnActive : styles.settingsBtn}
+          title={collapsed ? 'Settings' : undefined}
         >
           <Settings className={styles.navIcon} />
-          <span>Settings</span>
+          {!collapsed && <span>Settings</span>}
         </button>
-        <p className={styles.poweredBy}>Powered by Capital Acquisition</p>
+        {!collapsed && <p className={styles.poweredBy}>Powered by Capital Acquisition</p>}
       </div>
     </aside>
   );
