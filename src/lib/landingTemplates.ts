@@ -35,6 +35,9 @@ export interface LandingTemplate {
   footer_text: string | null
   footer_powered_by: string | null
   footer_bg_color: string | null
+  footer_text_color: string | null
+  nav_bg_color: string | null
+  nav_text_color: string | null
   custom_css: string | null
 }
 
@@ -76,7 +79,9 @@ export function resolveTemplate(
     'cta_text', 'cta_bg_color', 'calendar_heading',
     'social_proof_heading', 'social_proof_bg_color', 'social_proof_text_color',
     'why_matters_heading', 'why_matters_subheading', 'why_matters_body', 'why_matters_bg_color', 'why_matters_text_color',
-    'footer_text', 'footer_powered_by', 'footer_bg_color', 'custom_css',
+    'footer_text', 'footer_powered_by', 'footer_bg_color', 'footer_text_color',
+    'nav_bg_color', 'nav_text_color',
+    'custom_css',
   ]
 
   for (const field of fields) {

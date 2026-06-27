@@ -15,7 +15,8 @@ interface LandingPageTemplate {
   social_proof_bg_color: string | null;
   why_matters_heading: string | null; why_matters_subheading: string | null; why_matters_body: string | null;
   why_matters_bg_color: string | null;
-  footer_text: string | null; footer_powered_by: string | null; footer_bg_color: string | null;
+  footer_text: string | null; footer_powered_by: string | null; footer_bg_color: string | null; footer_text_color: string | null;
+  nav_bg_color: string | null; nav_text_color: string | null;
   custom_css: string | null; created_at: string; updated_at: string
 }
 
@@ -37,6 +38,9 @@ const DEFAULT_TEMPLATE: Partial<LandingPageTemplate> = {
   footer_text: '© {{year}} {{brand_title}}. All rights reserved.',
   footer_powered_by: 'Powered by {{brand_title}}',
   footer_bg_color: '',
+  footer_text_color: '',
+  nav_bg_color: '',
+  nav_text_color: '',
   is_default: false
 }
 
@@ -52,7 +56,7 @@ export default function TemplatesTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ branding: true, hero: false, cta: false, calendar: false, social: false, why: false, footer: false })
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ branding: true, nav: false, hero: false, cta: false, calendar: false, social: false, why: false, footer: false })
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [previewMode, setPreviewMode] = useState<'off' | 'desktop' | 'mobile'>('off')
@@ -268,6 +272,17 @@ export default function TemplatesTab() {
                         </div>
                       </div>
                       <Section title="Brand Color" field="brand_color" type="color" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Navigation */}
+                <div className={s.sectionCard}>
+                  <button onClick={() => toggleSection('nav')} className={s.sectionToggle}><h4 className={s.sectionTitle}>Navigation</h4>{expandedSections.nav ? <ChevronDown className={s.iconSm} /> : <ChevronRight className={s.iconSm} />}</button>
+                  {expandedSections.nav && (
+                    <div className={s.sectionContent}>
+                      <Section title="Background Color" field="nav_bg_color" type="color" />
+                      <Section title="Text Color" field="nav_text_color" type="color" />
                     </div>
                   )}
                 </div>

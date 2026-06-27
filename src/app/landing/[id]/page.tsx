@@ -343,7 +343,7 @@ export default function LandingPage({ params }: { params: { id: string } }) {
       )}
 
       {/* ---- NAV BAR ---- */}
-      <nav className={styles.nav}>
+      <nav className={styles.nav} style={{ background: tpl('nav_bg_color') || undefined, color: tpl('nav_text_color') || undefined }}>
         <div className={styles.navContent}>
           <div className={styles.navBrand}>
             <img src="https://wxxjiehgcjrmkbatkvsu.supabase.co/storage/v1/object/public/images/images/images_1782500392085.png" alt={brandTitle} width={32} height={32} className={styles.navLogo} style={{ borderRadius: '4px', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).src = '/ca-logo.svg' }} />

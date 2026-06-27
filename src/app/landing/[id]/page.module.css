@@ -456,3 +456,25 @@
 /* ─── Badge (hidden by default) ─── */
 .badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.875rem; border-radius: 100px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid; width: fit-content; }
 .badgeDot { width: 0.375rem; height: 0.375rem; border-radius: 50%; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+/* ─── Mobile Preview Responsive ─── */
+.previewMobile .nav { padding: 0.5rem 0.75rem; }
+.previewMobile .navContent { padding: 0.5rem 0; }
+.previewMobile .navBrandName { font-size: 0.875rem; }
+.previewMobile .navCta { font-size: 0.75rem; padding: 0.5rem 0.75rem; }
+.previewMobile .hero { padding: 2rem 0.75rem; }
+.previewMobile .heroHeading { font-size: 1.5rem; line-height: 1.2; }
+.previewMobile .heroSubheading { font-size: 0.875rem; }
+.previewMobile .heroBody { font-size: 0.8125rem; }
+.previewMobile .videoContainer { margin: 0 0.75rem; }
+.previewMobile .videoPlayer { border-radius: 12px; }
+.previewMobile .desktopCta { display: none !important; }
+.previewMobile .mobileCta { margin: 0 0.75rem; font-size: 0.875rem; }
+.previewMobile .socialProof { padding: 1.5rem 0.75rem; }
+.previewMobile .socialProofHeading { font-size: 0.875rem; }
+.previewMobile .whyMatters { padding: 1.5rem 0.75rem; }
+.previewMobile .whyMattersHeading { font-size: 1rem; }
+.previewMobile .whyMattersSubheading { font-size: 0.8125rem; }
+.previewMobile .whyMattersBody { font-size: 0.8125rem; }
+.previewMobile .footer { padding: 1rem 0.75rem; }
+.previewMobile .footerContent { flex-direction: column; gap: 0.5rem; text-align: center; }
