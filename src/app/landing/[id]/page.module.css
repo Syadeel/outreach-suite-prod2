@@ -3,6 +3,54 @@
    Clean, professional, white background
    =================================================================== */
 
+/* ─── Preview Mode Toggle ─── */
+.viewToggle {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  gap: 2px;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  padding: 3px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.viewToggleBtn {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.viewToggleBtn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.viewToggleActive {
+  background: #4F46E5;
+  color: #ffffff;
+}
+
+/* ─── Preview Mobile Mode ─── */
+.previewMobile {
+  max-width: 375px;
+  margin: 0 auto;
+  border-left: 3px solid #1a1a2e;
+  border-right: 3px solid #1a1a2e;
+  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.1), 8px 0 30px rgba(0, 0, 0, 0.1);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
 .page {
   min-height: 100vh;
   color: #1a1a2e;

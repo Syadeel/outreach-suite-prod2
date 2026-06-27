@@ -206,7 +206,7 @@ export default function TemplatesTab() {
                     <button onClick={(e) => { e.stopPropagation(); duplicateTemplate(t) }} className={s.templateActionBtn} title="Duplicate"><Copy className={s.iconXs} /></button>
                     {!t.is_default && <button onClick={(e) => { e.stopPropagation(); setDefault(t.id) }} className={s.templateActionBtn} title="Set default"><Star className={s.iconXs} /></button>}
                     <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete?')) deleteTemplate(t.id) }} className={s.templateActionBtn} title="Delete"><Trash2 className={s.iconXs} /></button>
-                    <button onClick={async (e) => { e.stopPropagation(); try { const res = await fetch('/api/video-recordings'); const vids = await res.json(); if (vids && vids.length > 0) { window.open(`${window.location.origin}/landing/${vids[0].id}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${t.id}`, '_blank') } else { alert('No video recordings found. Upload a video first.') } } catch { alert('Could not load videos.') } }} className={s.templateActionBtn} title="Open in new tab"><Eye className={s.iconXs} /></button>
+                    <button onClick={async (e) => { e.stopPropagation(); try { const res = await fetch('/api/video-recordings'); const vids = await res.json(); if (vids && vids.length > 0) { window.open(`${window.location.origin}/landing/${vids[0].id}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${t.id}&preview=true`, '_blank') } else { alert('No video recordings found. Upload a video first.') } } catch { alert('Could not load videos.') } }} className={s.templateActionBtn} title="Open in new tab"><Eye className={s.iconXs} /></button>
                   </div>
                 </div>
                 <p className={s.templatePreview}>{t.hero_heading || 'No heading'}</p>
@@ -357,12 +357,12 @@ export default function TemplatesTab() {
                       <div className={s.mobilePreview}>
                         <div className={s.phoneFrame}>
                           <div className={s.phoneNotch}><div className={s.phoneNotchDot} /></div>
-                          <iframe src={`/landing/${previewVideoId}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}`} title="Mobile Preview" className={s.phoneIframe} />
+                          <iframe src={`/landing/${previewVideoId}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}&preview=true`} title="Mobile Preview" className={s.phoneIframe} />
                         </div>
                       </div>
                     ) : (
                       <div className={s.desktopPreview}>
-                        <iframe src={`/landing/${previewVideoId}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}`} title="Desktop Preview" className={s.desktopIframe} />
+                        <iframe src={`/landing/${previewVideoId}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}&preview=true`} title="Desktop Preview" className={s.desktopIframe} />
                       </div>
                     )}
                   </div>

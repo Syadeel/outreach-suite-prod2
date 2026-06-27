@@ -88,6 +88,13 @@ export default function LandingPage({ params }: { params: { id: string } }) {
 
   // UI
   const [ctaVisible, setCtaVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [isPreview, setIsPreview] = useState(false);
+
+  // Check if preview mode on mount
+  useEffect(() => {
+    if (window.location.search.includes('preview=true')) setIsPreview(true);
+  }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const watchStarted = useRef(false);
@@ -325,7 +332,15 @@ export default function LandingPage({ params }: { params: { id: string } }) {
   /*  RENDER                                                           */
   /* ================================================================ */
   return (
-    <div className={`${styles.page} landing-page`}>
+    <div className={`${styles.page} landing-page ${isPreview && viewMode === 'mobile' ? styles.previewMobile : ''}`}>
+
+      {/* ---- VIEW MODE TOGGLE (only in preview mode) ---- */}
+      {isPreview && (
+        <div className={styles.viewToggle}>
+          <button className={`${styles.viewToggleBtn} ${viewMode === 'desktop' ? styles.viewToggleActive : ''}`} onClick={() => setViewMode('desktop')}>Desktop</button>
+          <button className={`${styles.viewToggleBtn} ${viewMode === 'mobile' ? styles.viewToggleActive : ''}`} onClick={() => setViewMode('mobile')}>Mobile</button>
+        </div>
+      )}
 
       {/* ---- NAV BAR ---- */}
       <nav className={styles.nav}>
