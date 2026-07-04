@@ -66,7 +66,7 @@ export default function LoginPage() {
             margin: '0 auto 1.25rem',
             overflow: 'hidden',
           }}>
-            <img src="/ca-logo.svg" alt="Capital Acquisition" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
+            <img src="/icon.png" alt="Capital Acquisition" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
           </div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f1f5f9', marginBottom: '0.375rem' }}>
             Outreach Suite
