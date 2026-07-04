@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyRequestSecurity } from '@/lib/auth';
 
-export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
 
 // Valid usernames (default)
 const DEFAULT_USERNAMES = ['admin', 'adeel'];
@@ -21,17 +20,12 @@ export async function GET() {
       validUsernames: DEFAULT_USERNAMES,
     });
   } catch (err: any) {
-    console.error('[Username] GET error:', err.message);
     return NextResponse.json({ username: 'admin', validUsernames: DEFAULT_USERNAMES });
   }
 }
 
 // PUT: Change username
-export async function PUT(request: Request) {
-  if (!verifyRequestSecurity(request)) {
-    return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
-  }
-
+export async function PUT(request: NextRequest) {
   try {
     const { currentPassword, newUsername } = await request.json();
 
@@ -47,26 +41,35 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Username can only contain letters, numbers, and underscores' }, { status: 400 });
     }
 
-    // Verify current password
-    const { hashPassword, verifyPassword, isBcryptHash } = await import('@/lib/auth');
-    
+    // Verify current password — check env vars OR Supabase settings
     const envPassword = process.env.DASHBOARD_PASSWORD || process.env.OS_PASSWORD;
     let passwordValid = envPassword ? currentPassword === envPassword : false;
 
+    // Also check Supabase os_password
     if (!passwordValid) {
-      const { data } = await supabaseAdmin
+      const { data: pwdData } = await supabaseAdmin
+        .from('settings')
+        .select('value')
+        .eq('key', 'os_password')
+        .single();
+
+      if (pwdData?.value) {
+        passwordValid = currentPassword === pwdData.value;
+      }
+    }
+
+    // Also check bcrypt hash
+    if (!passwordValid) {
+      const { data: hashData } = await supabaseAdmin
         .from('settings')
         .select('value')
         .eq('key', 'dashboard_password_hash')
         .single();
 
-      if (data) {
-        if (isBcryptHash(data.value)) {
-          passwordValid = await verifyPassword(currentPassword, data.value);
-        } else {
-          const { createHash } = await import('crypto');
-          const inputHash = createHash('sha256').update(currentPassword).digest('hex');
-          passwordValid = data.value === inputHash;
+      if (hashData?.value) {
+        const { verifyPassword, isBcryptHash } = await import('@/lib/auth');
+        if (isBcryptHash(hashData.value)) {
+          passwordValid = await verifyPassword(currentPassword, hashData.value);
         }
       }
     }
@@ -87,7 +90,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true, username: newUsername.toLowerCase().trim() });
   } catch (err: any) {
-    console.error('[Username] PUT error:', err.message);
     return NextResponse.json({ error: 'Failed to change username' }, { status: 500 });
   }
 }
