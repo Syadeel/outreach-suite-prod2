@@ -56,31 +56,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Too many attempts. Try again in 1 minute.' }, { status: 429 });
     }
 
-    // Check env password first
+    // Check password: env vars OR Supabase settings table
     const envPassword = process.env.DASHBOARD_PASSWORD || process.env.OS_PASSWORD;
     let isValid = envPassword ? password === envPassword : false;
 
-    // If env password doesn't match, check DB stored hash
+    // If env password doesn't match, check Supabase settings table
     if (!isValid) {
-      const { data } = await supabaseAdmin
+      // Try os_password (plain text from settings table)
+      const { data: pwdData } = await supabaseAdmin
         .from('settings')
         .select('value')
-        .eq('key', 'dashboard_password_hash')
+        .eq('key', 'os_password')
         .single();
 
-      if (data) {
-        if (isBcryptHash(data.value)) {
-          isValid = await verifyPassword(password, data.value);
-        } else {
-          const { createHash } = await import('crypto');
-          const inputHash = createHash('sha256').update(password).digest('hex');
-          if (data.value === inputHash) {
-            isValid = true;
-            const newHash = await hashPassword(password);
-            await supabaseAdmin
-              .from('settings')
-              .update({ value: newHash })
-              .eq('key', 'dashboard_password_hash');
+      if (pwdData?.value) {
+        isValid = password === pwdData.value;
+      }
+
+      // Also check dashboard_password_hash (bcrypt/sha256)
+      if (!isValid) {
+        const { data: hashData } = await supabaseAdmin
+          .from('settings')
+          .select('value')
+          .eq('key', 'dashboard_password_hash')
+          .single();
+
+        if (hashData?.value) {
+          if (isBcryptHash(hashData.value)) {
+            isValid = await verifyPassword(password, hashData.value);
+          } else {
+            const { createHash } = await import('crypto');
+            const inputHash = createHash('sha256').update(password).digest('hex');
+            if (hashData.value === inputHash) {
+              isValid = true;
+              const newHash = await hashPassword(password);
+              await supabaseAdmin
+                .from('settings')
+                .update({ value: newHash })
+                .eq('key', 'dashboard_password_hash');
+            }
           }
         }
       }

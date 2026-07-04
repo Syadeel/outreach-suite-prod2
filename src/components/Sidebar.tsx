@@ -12,7 +12,8 @@ import {
   Mic,
   Sparkles,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  LogOut
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
@@ -140,6 +141,18 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         >
           <Settings className={styles.navIcon} />
           {!collapsed && <span>Settings</span>}
+        </button>
+        <button
+          onClick={() => {
+            document.cookie = 'os_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.thecapitalacquisition.com';
+            document.cookie = 'os_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
+            window.location.href = '/login';
+          }}
+          className={styles.logoutBtn}
+          title={collapsed ? 'Sign Out' : undefined}
+        >
+          <LogOut className={styles.navIcon} />
+          {!collapsed && <span>Sign Out</span>}
         </button>
         {!collapsed && <p className={styles.poweredBy}>Powered by Capital Acquisition</p>}
       </div>
