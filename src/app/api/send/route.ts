@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail } from '@/lib/smtp';
 import { getEmailGifUrl, getPersonalizedEmailGifUrl, getPersonalizedThumbnailUrl } from '@/lib/cloudinary';
+import { verifyRequestSecurity } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
+  // CSRF protection
+  if (!verifyRequestSecurity(req)) {
+    return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
+  }
+  
   try {
     const body = await req.json();
     const { campaignLeadId } = body;

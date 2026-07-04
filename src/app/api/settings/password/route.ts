@@ -1,19 +1,14 @@
-import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { hashPassword, verifyPassword, isBcryptHash, setSessionCookie } from '@/lib/auth';
+import { verifyRequestSecurity } from '@/lib/auth';
 
 export const maxDuration = 30;
 
-function hashPassword(password: string): string {
-  return createHash('sha256').update(password).digest('hex');
-}
-
-async function verifyPassword(inputPassword: string): Promise<boolean> {
-  const inputHash = hashPassword(inputPassword);
-
-  // Check env vars first
-  const envPassword = process.env.DASHBOARD_PASSWORD || process.env.OS_PASSWORD || 'capital123';
-  if (inputPassword === envPassword) return true;
+async function verifyPasswordWithFallback(inputPassword: string): Promise<boolean> {
+  // Check env vars first (plaintext comparison)
+  const envPassword = process.env.DASHBOARD_PASSWORD || process.env.OS_PASSWORD;
+  if (envPassword && inputPassword === envPassword) return true;
 
   // Check DB stored hash
   const { data } = await supabaseAdmin
@@ -23,7 +18,22 @@ async function verifyPassword(inputPassword: string): Promise<boolean> {
     .single();
 
   if (data) {
-    return data.value === inputHash;
+    // Support both bcrypt and legacy SHA-256 hashes
+    if (isBcryptHash(data.value)) {
+      return verifyPassword(inputPassword, data.value);
+    }
+    // Legacy SHA-256 migration: re-hash with bcrypt on successful login
+    const { createHash } = await import('crypto');
+    const inputHash = createHash('sha256').update(inputPassword).digest('hex');
+    if (data.value === inputHash) {
+      // Migrate to bcrypt
+      const newHash = await hashPassword(inputPassword);
+      await supabaseAdmin
+        .from('settings')
+        .update({ value: newHash })
+        .eq('key', 'dashboard_password_hash');
+      return true;
+    }
   }
 
   return false;
@@ -45,12 +55,18 @@ export async function GET() {
       lastUpdated: tsEntry?.value || null,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[Settings] GET error:', err.message);
+    return NextResponse.json({ error: 'Failed to check password status' }, { status: 500 });
   }
 }
 
 // PUT: Change password
 export async function PUT(request: Request) {
+  // CSRF protection
+  if (!verifyRequestSecurity(request)) {
+    return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
+  }
+
   try {
     const { currentPassword, newPassword } = await request.json();
 
@@ -61,12 +77,13 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 });
     }
 
-    const isValid = await verifyPassword(currentPassword);
+    const isValid = await verifyPasswordWithFallback(currentPassword);
     if (!isValid) {
       return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
     }
 
-    const hashed = hashPassword(newPassword);
+    // Hash with bcrypt
+    const hashed = await hashPassword(newPassword);
     const now = new Date().toISOString();
 
     const { error } = await supabaseAdmin
@@ -80,7 +97,8 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[Settings] PUT error:', err.message);
+    return NextResponse.json({ error: 'Failed to change password' }, { status: 500 });
   }
 }
 
@@ -95,6 +113,7 @@ export async function DELETE() {
     if (error) throw new Error(error.message);
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[Settings] DELETE error:', err.message);
+    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }

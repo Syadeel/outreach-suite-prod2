@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, Copy, Star, ChevronDown, ChevronRight, Save, Eye, X, Upload, Check } from 'lucide-react'
+import { Plus, Trash2, Copy, Star, ChevronDown, ChevronRight, Save, Eye, X, Upload, Check, Loader, Layout } from 'lucide-react'
 import s from './TemplatesTab.module.css'
+import { useToast } from '../components/Toast'
 
 interface LandingPageTemplate {
   id: string; name: string; is_default: boolean; hidden_sections: string[] | null;
@@ -50,6 +51,7 @@ function applyVars(text: string | null, firstName = 'John', company = 'Acme Corp
 }
 
 export default function TemplatesTab() {
+  const { toast } = useToast()
   const [templates, setTemplates] = useState<LandingPageTemplate[]>([])
   const [selected, setSelected] = useState<LandingPageTemplate | null>(null)
   const [editing, setEditing] = useState<LandingPageTemplate | null>(null)
@@ -116,9 +118,19 @@ export default function TemplatesTab() {
 
   const setDefault = async (id: string) => {
     try {
+      const target = templates.find(t => t.id === id)
+      if (!target) return
+      const newDefault = !target.is_default
+      // Unset current default
       for (const t of templates) { if (t.is_default) await fetch(`/api/templates/${t.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_default: false }) }) }
-      const res = await fetch(`/api/templates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_default: true }) })
-      if (res.ok) { const updated = await res.json(); setTemplates(prev => prev.map(t => ({ ...t, is_default: t.id === updated.id }))); if (editing?.id === id) setEditing(updated); showMsg('ok', 'Default updated') }
+      if (newDefault) {
+        const res = await fetch(`/api/templates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_default: true }) })
+        if (res.ok) { const updated = await res.json(); setTemplates(prev => prev.map(t => ({ ...t, is_default: t.id === updated.id }))); if (editing?.id === id) setEditing(updated); showMsg('ok', 'Default updated') }
+      } else {
+        setTemplates(prev => prev.map(t => ({ ...t, is_default: false })))
+        if (editing?.id === id) setEditing({ ...editing, is_default: false })
+        showMsg('ok', 'Default removed')
+      }
     } catch { showMsg('error', 'Failed') }
   }
 
@@ -151,16 +163,22 @@ export default function TemplatesTab() {
         const videos = await res.json()
         if (videos && videos.length > 0) {
           setPreviewVideoId(videos[0].id)
+          // Open preview in new tab for reliability
+          const url = `${window.location.origin}/landing/${videos[0].id}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}&preview=true`
+          window.open(url, '_blank')
+          return
         } else {
-          alert('No video recordings found. Upload a video in the Video tab first.')
+          toast.warning('No video recordings found. Upload a video in the Video tab first.')
           return
         }
       } catch {
-        alert('Could not load videos. Upload a video in the Video tab first.')
+        toast.error('Could not load videos. Upload a video in the Video tab first.')
         return
       }
     }
-    setPreviewMode('desktop')
+    // If we already have a video ID, open in new tab
+    const url = `${window.location.origin}/landing/${previewVideoId}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${editing?.id || ''}&preview=true`
+    window.open(url, '_blank')
   }
 
   const Section = ({ title, field, type, rows, children }: { title: string; field?: string; type?: 'text' | 'textarea' | 'color' | 'custom'; rows?: number; children?: React.ReactNode }) => {
@@ -202,15 +220,26 @@ export default function TemplatesTab() {
         <div className={s.sidebar}>
           <div className={s.sidebarHeader}><span className={s.sidebarTitle}>Templates ({templates.length})</span></div>
           <div className={s.templateList}>
-            {loading ? <div className={s.empty}>Loading...</div> : templates.length === 0 ? <div className={s.empty}>No templates yet.</div> : templates.map(t => (
+            {loading ? (
+              <div className={s.loadingState}>
+                <Loader className={s.loadingSpinner} />
+                <span>Loading templates...</span>
+              </div>
+            ) : templates.length === 0 ? (
+              <div className={s.emptyCard}>
+                <Layout className={s.emptyIcon} />
+                <h3 className={s.emptyTitle}>No templates yet</h3>
+                <p className={s.emptyText}>Create your first template to personalize landing pages.</p>
+              </div>
+            ) : templates.map(t => (
               <div key={t.id} onClick={() => { setSelected(t); setEditing(t) }} className={`${s.templateItem} ${selected?.id === t.id ? s.templateItemActive : ''}`}>
                 <div className={s.templateHeader}>
                   <h4 className={s.templateName}>{t.name} {t.is_default && <Star className={s.starIcon} />}</h4>
                   <div className={s.templateActions}>
                     <button onClick={(e) => { e.stopPropagation(); duplicateTemplate(t) }} className={s.templateActionBtn} title="Duplicate"><Copy className={s.iconXs} /></button>
-                    {!t.is_default && <button onClick={(e) => { e.stopPropagation(); setDefault(t.id) }} className={s.templateActionBtn} title="Set default"><Star className={s.iconXs} /></button>}
+                    <button onClick={(e) => { e.stopPropagation(); setDefault(t.id) }} className={s.templateActionBtn} title={t.is_default ? 'Remove default' : 'Set default'}><Star className={t.is_default ? s.starIconActive : s.starIcon} /></button>
                     <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete?')) deleteTemplate(t.id) }} className={s.templateActionBtn} title="Delete"><Trash2 className={s.iconXs} /></button>
-                    <button onClick={async (e) => { e.stopPropagation(); try { const res = await fetch('/api/video-recordings'); const vids = await res.json(); if (vids && vids.length > 0) { window.open(`${window.location.origin}/landing/${vids[0].id}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${t.id}&preview=true`, '_blank') } else { alert('No video recordings found. Upload a video first.') } } catch { alert('Could not load videos.') } }} className={s.templateActionBtn} title="Open in new tab"><Eye className={s.iconXs} /></button>
+                    <button onClick={async (e) => { e.stopPropagation(); try { const res = await fetch('/api/video-recordings'); const vids = await res.json(); if (vids && vids.length > 0) { window.open(`${window.location.origin}/landing/${vids[0].id}?leadId=61eb4c23-572f-421f-9466-f3f66b177415&templateId=${t.id}&preview=true`, '_blank') } else { toast.warning('No video recordings found. Upload a video first.') } } catch { toast.error('Could not load videos.') } }} className={s.templateActionBtn} title="Open in new tab"><Eye className={s.iconXs} /></button>
                   </div>
                 </div>
                 <p className={s.templatePreview}>{t.hero_heading || 'No heading'}</p>
@@ -221,8 +250,17 @@ export default function TemplatesTab() {
 
         {/* Editor */}
         <div className={s.editor}>
-          {!editing ? (
-            <div className={s.empty}><Eye className={s.emptyIcon} /><p>Select a template to edit, or create a new one.</p></div>
+          {loading ? (
+            <div className={s.loadingState}>
+              <Loader className={s.loadingSpinner} />
+              <span>Loading...</span>
+            </div>
+          ) : !editing ? (
+            <div className={s.emptyCard}>
+              <Layout className={s.emptyIcon} />
+              <h3 className={s.emptyTitle}>Select a template</h3>
+              <p className={s.emptyText}>Choose a template from the list to edit, or create a new one.</p>
+            </div>
           ) : (
             <>
               <div className={s.editorHeader}>

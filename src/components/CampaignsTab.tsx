@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Mail, Plus, Trash, Play, Pause, Users, Edit3, X, ChevronRight, Check } from 'lucide-react'
+import { Mail, Plus, Trash, Play, Pause, Users, Edit3, X, ChevronRight, Check, LayoutGrid, List, Send, Loader } from 'lucide-react'
 import s from './CampaignsTab.module.css'
+import { useToast } from '../components/Toast'
 
 export default function CampaignsTab() {
+  const { toast } = useToast()
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [videos, setVideos] = useState<any[]>([])
   const [leads, setLeads] = useState<any[]>([])
@@ -19,8 +21,13 @@ export default function CampaignsTab() {
   const [linkerSearch, setLinkerSearch] = useState('')
   const [templates, setTemplates] = useState<any[]>([])
   const [lpTemplates, setLpTemplates] = useState<any[]>([])
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') { const v = localStorage.getItem('campaigns-view-mode'); if (v === 'grid' || v === 'list') return v }
+    return 'grid'
+  })
 
   useEffect(() => { fetchData() }, [])
+  useEffect(() => { localStorage.setItem('campaigns-view-mode', viewMode) }, [viewMode])
 
   const fetchData = async () => {
     try {
@@ -78,8 +85,8 @@ export default function CampaignsTab() {
       }
       const campaignLeads = selectedLeadIds.map((leadId, idx) => ({ campaign_id: showLeadLinker, lead_id: leadId, status: 'pending', current_step_index: 0, next_send_time: getNextSmartSendTime(idx).toISOString() }))
       const { error } = await supabase.from('campaign_leads').upsert(campaignLeads, { onConflict: 'campaign_id,lead_id' })
-      if (error) { alert(error.message) } else { alert(`Linked ${selectedLeadIds.length} leads to campaign.`); setSelectedLeadIds([]); setShowLeadLinker(null); fetchData() }
-    } catch (err: any) { alert(`Error: ${err.message}`) }
+      if (error) { toast.error(error.message) } else { toast.success(`Linked ${selectedLeadIds.length} leads to campaign.`); setSelectedLeadIds([]); setShowLeadLinker(null); fetchData() }
+    } catch (err: any) { toast.error(`Error: ${err.message}`) }
   }
 
   const toggleSelectLead = (id: string) => setSelectedLeadIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id])
@@ -91,14 +98,27 @@ export default function CampaignsTab() {
           <h2 className={s.title}><Mail className={s.titleIcon} /> Outreach Campaigns</h2>
           <p className={s.subtitle}>Build sequence steps, attach video pitches, and orchestrate email sending rotation.</p>
         </div>
-        <button onClick={() => setShowBuilder(true)} className={s.createBtn}><Plus className={s.btnIcon} /> Create Sequence</button>
+        <div className={s.headerActions}>
+          <div className={s.viewToggle}>
+            <button className={`${s.toggleBtn} ${viewMode === 'grid' ? s.toggleActive : ''}`} onClick={() => setViewMode('grid')} title="Grid view"><LayoutGrid className={s.iconSm} /></button>
+            <button className={`${s.toggleBtn} ${viewMode === 'list' ? s.toggleActive : ''}`} onClick={() => setViewMode('list')} title="List view"><List className={s.iconSm} /></button>
+          </div>
+          <button onClick={() => setShowBuilder(true)} className={s.createBtn}><Plus className={s.btnIcon} /> Create Sequence</button>
+        </div>
       </div>
 
       {loading ? (
-        <div className={s.empty}>Loading campaigns...</div>
+        <div className={s.loadingState}>
+          <Loader className={s.loadingSpinner} />
+          <span>Loading campaigns...</span>
+        </div>
       ) : campaigns.length === 0 ? (
-        <div className={s.empty}>No outreach sequences built yet. Click &apos;Create Sequence&apos; to launch one!</div>
-      ) : (
+        <div className={s.emptyCard}>
+          <Send className={s.emptyIcon} />
+          <h3 className={s.emptyTitle}>No campaigns yet</h3>
+          <p className={s.emptyText}>Create your first outreach sequence to start connecting with leads.</p>
+        </div>
+      ) : viewMode === 'grid' ? (
         <div className={s.grid}>
           {campaigns.map((camp) => (
             <div key={camp.id} className={s.card}>
@@ -109,7 +129,7 @@ export default function CampaignsTab() {
                     <span className={`${s.badge} ${camp.status === 'active' ? s.badgeActive : s.badgeDraft}`}>{camp.status}</span>
                   </div>
                   <div className={s.cardActions}>
-                    <button onClick={() => handleToggleStatus(camp.id, camp.status)} className={`${s.actionBtn} ${camp.status === 'active' ? s.actionBtnAmber : s.actionBtnEmerald}`} title={camp.status === 'active' ? 'Pause' : 'Start'}>
+                    <button onClick={() => handleToggleStatus(camp.id, camp.status)} className={`${s.actionBtn} ${camp.status === 'active' ? s.actionBtnAmber : s.actionBtnSuccess}`} title={camp.status === 'active' ? 'Pause' : 'Start'}>
                       {camp.status === 'active' ? <Pause className={s.iconSm} /> : <Play className={s.iconSm} />}
                     </button>
                     {camp.status !== 'active' && <button onClick={() => handleEditCampaign(camp)} className={s.actionBtn} title="Edit"><Edit3 className={s.iconSm} /></button>}
@@ -122,6 +142,28 @@ export default function CampaignsTab() {
               </div>
               <div className={s.cardFooter}>
                 <button onClick={() => setShowLeadLinker(camp.id)} className={s.addLeadsBtn}><Users className={s.iconSm} /> Add Leads</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={s.list}>
+          {campaigns.map((camp) => (
+            <div key={camp.id} className={s.listRow}>
+              <div className={s.listLeft}>
+                <h3 className={s.cardTitle}>{camp.name}</h3>
+                <span className={`${s.badge} ${camp.status === 'active' ? s.badgeActive : s.badgeDraft}`}>{camp.status}</span>
+              </div>
+              <div className={s.listMiddle}>
+                <span className={s.listStatLabel}>{(camp.steps || []).length} steps</span>
+              </div>
+              <div className={s.listActions}>
+                <button onClick={() => handleToggleStatus(camp.id, camp.status)} className={`${s.actionBtn} ${camp.status === 'active' ? s.actionBtnAmber : s.actionBtnSuccess}`} title={camp.status === 'active' ? 'Pause' : 'Start'}>
+                  {camp.status === 'active' ? <Pause className={s.iconSm} /> : <Play className={s.iconSm} />}
+                </button>
+                {camp.status !== 'active' && <button onClick={() => handleEditCampaign(camp)} className={s.actionBtn} title="Edit"><Edit3 className={s.iconSm} /></button>}
+                <button onClick={() => setShowLeadLinker(camp.id)} className={s.actionBtn} title="Add Leads"><Users className={s.iconSm} /></button>
+                <button onClick={() => handleDeleteCampaign(camp.id)} className={s.actionBtn} title="Delete"><Trash className={s.iconSm} /></button>
               </div>
             </div>
           ))}

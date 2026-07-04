@@ -40,9 +40,12 @@ export default function AvatarStudioTab() {
   const [showSettings, setShowSettings] = useState(false)
 
   // ─── Test State ───
-  const [testText, setTestText] = useState('Hey, this is my AI avatar. I can say anything you want! The quick brown fox jumps over the lazy dog. This is a test to see how the voice cloning and lip sync work together. Pretty cool, right?')
+  const [testText, setTestText] = useState('Hey, just wanted to show you something cool. Check this out.')
   const [testGenerating, setTestGenerating] = useState(false)
   const [testVideoUrl, setTestVideoUrl] = useState<string | null>(null)
+
+  // ─── Requirements State ───
+  const [baseVideoReady, setBaseVideoReady] = useState(false)
 
   const voiceRef = useRef<HTMLInputElement>(null)
   const faceRef = useRef<HTMLInputElement>(null)
@@ -69,6 +72,15 @@ export default function AvatarStudioTab() {
       if (savedFace) setFaceUrl(savedFace)
       if (savedImage) setAvatarImageUrl(savedImage)
       if (savedVoice && savedFace) setAvatarReady(true)
+
+      // Check base video status
+      try {
+        const res = await fetch('/api/v2/avatar-config/status?userId=default_user')
+        if (res.ok) {
+          const data = await res.json()
+          setBaseVideoReady(data.status === 'done')
+        }
+      } catch {}
     }
 
     loadAvatar()
@@ -114,7 +126,7 @@ export default function AvatarStudioTab() {
     }
   }
 
-  // ─── Handle Face Video Upload ───
+  // ─── Handle Face Image Upload ───
   const handleFaceUpload = async (file: File) => {
     setFaceFile(file)
     setFaceUploading(true)
@@ -287,6 +299,34 @@ export default function AvatarStudioTab() {
         </button>
       </div>
 
+      {/* Requirements Status Panel */}
+      <div className={styles.reqPanel}>
+        <h3 className={styles.reqTitle}>Generation Requirements</h3>
+        <div className={styles.reqGrid}>
+          <div className={`${styles.reqItem} ${voiceUrl ? styles.reqDone : styles.reqMissing}`}>
+            {voiceUrl ? <CheckCircle className={styles.reqIconDone} /> : <XCircle className={styles.reqIconMissing} />}
+            <span>Voice Sample</span>
+          </div>
+          <div className={`${styles.reqItem} ${faceUrl ? styles.reqDone : styles.reqMissing}`}>
+            {faceUrl ? <CheckCircle className={styles.reqIconDone} /> : <XCircle className={styles.reqIconMissing} />}
+            <span>Face Image</span>
+          </div>
+          <div className={`${styles.reqItem} ${testText.trim() ? styles.reqDone : styles.reqMissing}`}>
+            {testText.trim() ? <CheckCircle className={styles.reqIconDone} /> : <XCircle className={styles.reqIconMissing} />}
+            <span>Script Template</span>
+          </div>
+          <div className={`${styles.reqItem} ${baseVideoReady ? styles.reqDone : styles.reqMissing}`}>
+            {baseVideoReady ? <CheckCircle className={styles.reqIconDone} /> : <XCircle className={styles.reqIconMissing} />}
+            <span>Base Video</span>
+          </div>
+        </div>
+        <div className={`${styles.reqSummary} ${voiceUrl && faceUrl ? styles.reqSummaryReady : styles.reqSummaryPending}`}>
+          {voiceUrl && faceUrl
+            ? 'Ready to generate — Upload a script and click Generate'
+            : 'Upload a voice sample and face image to get started'}
+        </div>
+      </div>
+
       {/* Settings Panel */}
       {showSettings && (
         <div className={styles.settingsPanel}>
@@ -344,7 +384,7 @@ export default function AvatarStudioTab() {
             Upload Samples
           </h3>
           <p className={styles.sectionDesc}>
-            Upload a voice sample and face video to create your AI avatar
+            Upload a voice sample and face image to create your AI avatar
           </p>
 
           <div className={styles.uploadGrid}>
@@ -388,7 +428,7 @@ export default function AvatarStudioTab() {
               )}
             </div>
 
-            {/* Face Video Upload */}
+            {/* Face Image Upload */}
             <div 
               onClick={() => faceRef.current?.click()}
               className={`${styles.uploadCard} ${faceUrl ? styles.uploadCardReady : ''}`}
@@ -405,7 +445,7 @@ export default function AvatarStudioTab() {
                 }}
               />
               <Video className={styles.uploadIcon} />
-              <p className={styles.uploadTitle}>Face Video</p>
+              <p className={styles.uploadTitle}>Face Image</p>
               <p className={styles.uploadDesc}>.mp4, .webm, or .mov</p>
               <p className={styles.uploadHint}>Face clearly visible, good lighting</p>
 
@@ -557,7 +597,7 @@ export default function AvatarStudioTab() {
             {faceUrl && (
               <div className={styles.previewCard}>
                 <Video className={styles.previewIcon} />
-                <p className={styles.previewLabel}>Face Video</p>
+                <p className={styles.previewLabel}>Face Image</p>
                 <video 
                   src={faceUrl} 
                   muted 
@@ -593,7 +633,7 @@ export default function AvatarStudioTab() {
           <li>Use a clear, well-lit voice sample (30+ seconds)</li>
           <li>Face video should have good lighting and clear face visibility</li>
           <li>Speak naturally in your voice sample</li>
-          <li>Keep face video stable (use a tripod if possible)</li>
+          <li>Keep face image stable (use a tripod if possible)</li>
           <li>Test with short scripts first before bulk generation</li>
         </ul>
       </div>

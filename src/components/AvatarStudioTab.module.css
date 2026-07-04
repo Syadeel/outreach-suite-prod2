@@ -87,3 +87,21 @@
 .tipsList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.375rem; }
 .tipsList li { font-size: 0.8125rem; color: var(--text-secondary); padding-left: 1.25rem; position: relative; }
 .tipsList li::before { content: '•'; position: absolute; left: 0; color: var(--primary); font-weight: bold; }
+
+/* Requirements Panel */
+.reqPanel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.reqTitle { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
+.reqGrid { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.reqItem { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: var(--radius-md); font-size: 0.8125rem; font-weight: 500; border: 1px solid; }
+.reqDone { background: rgba(16,185,129,0.08); color: var(--success); border-color: rgba(16,185,129,0.25); }
+.reqMissing { background: rgba(239,68,68,0.08); color: var(--danger); border-color: rgba(239,68,68,0.25); }
+.reqIconDone { width: 0.875rem; height: 0.875rem; color: var(--success); }
+.reqIconMissing { width: 0.875rem; height: 0.875rem; color: var(--danger); }
+.reqSummary { font-size: 0.8125rem; font-weight: 500; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); }
+.reqSummaryReady { background: rgba(16,185,129,0.06); color: var(--success); }
+.reqSummaryPending { background: rgba(245,158,11,0.06); color: var(--warning); }
+
+/* Hidden Input & Icons */
+.hiddenInput { display: none; }
+.readyIcon { width: 1rem; height: 1rem; color: var(--success); }
+.btnIcon { width: 1rem; height: 1rem; }

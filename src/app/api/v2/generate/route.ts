@@ -1,22 +1,25 @@
-// File: api/v2/generate/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { v2 as cloudinary } from 'cloudinary';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import { existsSync, readFileSync } from 'fs';
-import path from 'path';
+/**
+ * /api/v2/generate/route.ts — DashScope pipeline
+ *
+ * POST { leadId, script?, faceVideoUrl?, voiceRefUrl? }
+ *
+ * Pipeline:
+ * 1. Fetch lead
+ * 2. Load avatar config (or use provided URLs)
+ * 3. Resolve script template with lead data
+ * 4. Voice clone (DashScope CosyVoice) — direct, no internal API call
+ * 5. Lip-sync (DashScope wan2.2-s2v) — direct, no internal API call
+ * 6. Save video recording + landing page
+ * 7. Update lead with video/gif/page URLs
+ */
+
 export const maxDuration = 300;
 
-const execFileAsync = promisify(execFile);
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { generateTTS, generateLipSyncVideo, uploadBufferToStorage, downloadBufferFromUrl } from '@/lib/dashscope';
+import { resolveScriptTemplate } from '@/lib/script-parser';
+import crypto from 'crypto';
 
 function getSupabase() {
   return createClient(
@@ -25,28 +28,9 @@ function getSupabase() {
   );
 }
 
-const TEMP_DIR = path.join(process.cwd(), 'tmp');
-const FACE_VIDEO_URL =
-  process.env.FACE_VIDEO_URL ||
-  'https://res.cloudinary.com/dacq1vyxp/video/upload/v1781118782/v2_face/video_1781118774.mp4';
-const VOICE_REF_URL =
-  process.env.VOICE_REF_URL ||
-  'https://res.cloudinary.com/dacq1vyxp/video/upload/v1781112795/v2_voice_ref/voice_ref_optimized_30s.wav';
-const VOICE_CLONE_URL =
-  process.env.NEXT_PUBLIC_APP_URL
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v2/voice-clone`
-    : 'http://localhost:3000/api/v2/voice-clone';
-const LATENTSYNC_APP = 'latentsync-v16-original';
-const OUTPUT_DIR = path.join(process.cwd(), '..', 'voicekit', 'output');
-
-// ---------------------------------------------------------------------------
-// POST /api/v2/generate
-// ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   let leadId = '';
-  let audioUrl = '';
-  let videoUrl = '';
 
   try {
     const body = await req.json();
@@ -55,9 +39,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing leadId' }, { status: 400 });
     }
 
-    // Accept custom script, faceVideoUrl, and voiceRefUrl from request
     const customScript = body.script || '';
-    const customFaceVideoUrl = body.faceVideoUrl || '';
+    const customFaceUrl = body.faceVideoUrl || '';
     const customVoiceRefUrl = body.voiceRefUrl || '';
 
     // 1. Fetch lead
@@ -74,169 +57,94 @@ export async function POST(req: NextRequest) {
 
     await supabase.from('leads').update({ v2_status: 'processing' }).eq('id', leadId);
 
-    // 2. Generate personalized script
+    // 2. Determine face image and voice ref URLs
     const firstName = lead.first_name || lead.email?.split('@')[0] || 'there';
     const company = lead.company || 'your company';
-    const script = (customScript || `Hey {{first_name}} from {{company}}, I built a system that helps businesses like yours grow with automated AI video outreach. Let me show you how it works.`)
-      .replace(/\{\{first_name\}\}/g, firstName)
-      .replace(/\{\{company\}\}/g, company);
 
-    // Determine face video and voice ref URLs (custom > env hardcoded)
-    const currentFaceVideoUrl = customFaceVideoUrl || FACE_VIDEO_URL;
-    const currentVoiceRefUrl = customVoiceRefUrl || VOICE_REF_URL;
+    let finalFaceUrl = customFaceUrl || process.env.AVATAR_FACE_IMAGE_URL || '';
+    let finalVoiceRef = customVoiceRefUrl || process.env.AVATAR_VOICE_REF_URL || '';
+    let scriptTemplate = customScript || 'Hey {{first_name}} from {{company}}, I built a system that helps businesses like yours grow with automated AI video outreach. Let me show you how it works.';
 
-    // 3. Generate voice clone audio via Qwen3-TTS
-    console.log(`[V2] Generating voice clone for lead ${leadId}...`);
-    const vcUrl = process.env.NEXT_PUBLIC_APP_URL
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v2/voice-clone`
-      : 'http://localhost:3000/api/v2/voice-clone';
-    
-    const voiceCloneRes = await fetch(
-      vcUrl,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: script, ref_audio_url: currentVoiceRefUrl }),
-      },
-    );
+    // If no face/voice/script provided, load from avatar_config
+    if (!finalFaceUrl || !finalVoiceRef || customScript) {
+      const { data: config } = await supabase
+        .from('avatar_config')
+        .select('face_video_url, voice_ref_url, script_template')
+        .eq('user_id', 'default_user')
+        .single();
 
-    if (!voiceCloneRes.ok) {
-      const errData = await voiceCloneRes.json().catch(() => ({ error: 'Unknown' }));
-      throw new Error(`Voice clone failed: ${errData.error}`);
-    }
-
-    const voiceData = await voiceCloneRes.json();
-    audioUrl = voiceData.audioUrl;
-
-    console.log(`[V2] Voice clone ready: ${audioUrl} (${voiceData.duration}s)`);
-
-    // 4. Spawn Modal LatentSync inference (detached)
-    console.log(`[V2] Spawning LatentSync inference...`);
-
-    // Use Python to spawn the Modal function
-    const spawnScript = `
-import modal
-f = modal.Function.from_name("${LATENTSYNC_APP}", "run_inference")
-call = f.spawn(
-    video_url="${currentFaceVideoUrl}",
-    audio_url="${audioUrl}",
-    inference_steps=25,
-    guidance_scale=1.5,
-    seed=1247,
-    enable_deepcache=True,
-)
-print(call.object_id)
-`;
-
-    await mkdir(TEMP_DIR, { recursive: true });
-    const spawnResult = await execFileAsync('python', ['-c', spawnScript], {
-      timeout: 60_000,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
-
-    const fcId = spawnResult.stdout?.trim();
-    if (!fcId || !fcId.startsWith('fc-')) {
-      throw new Error(`Invalid function call ID: ${fcId}`);
-    }
-    console.log(`[V2] LatentSync spawned: ${fcId}`);
-
-    // 5. Wait for inference to complete (poll every 30s, max 20 min)
-    console.log(`[V2] Waiting for inference to complete...`);
-    const pollScript = `
-import modal
-fc = modal.FunctionCall.from_id("${fcId}")
-try:
-    result = fc.get(timeout=600)
-    print(result)
-except Exception as e:
-    if 'timeout' in str(e).lower():
-        print('TIMEOUT')
-    else:
-        raise
-`;
-
-    let inferenceResult: string | null = null;
-    for (let attempt = 0; attempt < 40; attempt++) {
-      const pollResult = await execFileAsync('python', ['-c', pollScript], {
-        timeout: 120_000,
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-      });
-      const output = pollResult.stdout?.trim();
-      if (output && output !== 'TIMEOUT') {
-        inferenceResult = output;
-        break;
+      if (config) {
+        if (!finalFaceUrl && config.face_video_url) finalFaceUrl = config.face_video_url;
+        if (!finalVoiceRef && config.voice_ref_url) finalVoiceRef = config.voice_ref_url;
+        if (!customScript && config.script_template) scriptTemplate = config.script_template;
       }
-      console.log(`  [V2] Poll ${attempt + 1}/40 — still running...`);
-      await new Promise(r => setTimeout(r, 30_000));
     }
 
-    if (!inferenceResult) {
-      throw new Error(`LatentSync timed out after 40 polls. Check: modal function get ${fcId}`);
+    if (!finalFaceUrl) {
+      throw new Error('No face image configured. Set up your avatar in Avatar Studio first.');
     }
 
-    console.log(`[V2] Inference completed: ${inferenceResult}`);
-
-    // 6. Fetch the result video from Modal volume
-    const fetchScript = `
-import modal
-f = modal.Function.from_name("${LATENTSYNC_APP}", "_fetch_output")
-out = f.remote("/cache/output/lipsync_v16_final.mp4")
-with open(r"${path.join(TEMP_DIR, 'latentsync_result.mp4').replace(/\\/g, '/')}", "wb") as fh:
-    fh.write(out)
-print("FETCHED")
-`;
-
-    await execFileAsync('python', ['-c', fetchScript], {
-      timeout: 300_000,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    // 3. Resolve script template with lead data
+    const resolvedScript = resolveScriptTemplate(scriptTemplate, {
+      first_name: firstName,
+      company: company,
+      last_name: lead.last_name || '',
+      email: lead.email || '',
     });
 
-    const videoPath = path.join(TEMP_DIR, 'latentsync_result.mp4');
-    if (!existsSync(videoPath)) {
-      throw new Error('Failed to fetch LatentSync output');
-    }
+    console.log(`[generate] Generating for lead ${leadId}: "${resolvedScript.slice(0, 80)}..."`);
 
-    // 7. Upload result video to Cloudinary
-    const timestamp = Math.round(Date.now() / 1000);
-    const folder = 'v2_videos';
-    const signature = cloudinary.utils.api_sign_request(
-      { timestamp, folder },
-      process.env.CLOUDINARY_API_SECRET || '',
-    );
+    // 4. Voice clone — direct DashScope call
+    console.log(`[generate] Voice cloning...`);
+    const ttsResult = await generateTTS({
+      text: resolvedScript,
+      referenceAudioUrl: finalVoiceRef || undefined,
+    });
 
-    const videoBuffer = readFileSync(videoPath);
-    const uploadForm = new FormData();
-    uploadForm.append('file', new Blob([videoBuffer]), 'video.mp4');
-    uploadForm.append('api_key', process.env.CLOUDINARY_API_KEY || '');
-    uploadForm.append('timestamp', String(timestamp));
-    uploadForm.append('signature', signature);
-    uploadForm.append('folder', folder);
+    console.log(`[generate] TTS done: ${(ttsResult.audioBuffer.byteLength / 1024).toFixed(0)} KB`);
 
-    const cloudRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/video/upload`,
-      { method: 'POST', body: uploadForm },
-    );
+    // Upload audio to storage
+    const audioFileName = `gen-audio/${crypto.randomUUID()}.wav`;
+    const audioUrl = await uploadBufferToStorage({
+      bucket: 'videos',
+      path: audioFileName,
+      buffer: Buffer.from(ttsResult.audioBuffer),
+      contentType: 'audio/wav',
+    });
 
-    if (!cloudRes.ok) {
-      throw new Error(`Cloudinary upload failed: ${await cloudRes.text()}`);
-    }
+    // 5. Lip-sync — direct DashScope call
+    console.log(`[generate] Generating lip-sync video...`);
+    const videoResult = await generateLipSyncVideo({
+      audioUrl,
+      imageUrl: finalFaceUrl,
+      resolution: '480P',
+    });
 
-    const cloudData = await cloudRes.json();
-    videoUrl = cloudData.secure_url;
+    console.log(`[generate] Video generated: ${videoResult.videoUrl}`);
 
-    // 8. Generate GIF preview
-    const gifUrl = videoUrl
-      .replace('/video/upload/', '/video/upload/w_400,c_scale,f_gif,q_auto,du_3,e_loop/')
-      .replace(/\.[^/.]+$/, '.gif');
+    // Download and re-upload to our storage
+    const videoBuffer = await downloadBufferFromUrl(videoResult.videoUrl);
+    const videoFileName = `gen-videos/${crypto.randomUUID()}.mp4`;
+    const videoUrl = await uploadBufferToStorage({
+      bucket: 'videos',
+      path: videoFileName,
+      buffer: videoBuffer,
+      contentType: 'video/mp4',
+    });
 
-    // 9. Save video_recordings first so we get an ID for the landing page
-    const { data: videoRec, error: videoRecErr } = await supabase
+    // 6. Generate GIF URL
+    const gifUrl = process.env.CLOUDINARY_CLOUD_NAME
+      ? videoUrl.replace('/video/upload/', '/video/upload/w_400,c_scale,f_gif,q_auto,du_3,e_loop/').replace(/\.[^/.]+$/, '.gif')
+      : videoUrl;
+
+    // 7. Save video recording
+    const { data: videoRec } = await supabase
       .from('video_recordings')
       .insert({
         lead_id: leadId,
         video_url: videoUrl,
         gif_url: gifUrl,
-        title: `V2 - ${lead.first_name || ''} ${lead.last_name || ''}`,
+        title: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'AI Avatar Video',
         cta_text: 'Book a Call',
         brand_color: '#34d399',
         brand_title: 'Capital Acquisition',
@@ -244,20 +152,13 @@ print("FETCHED")
       .select()
       .single();
 
-    if (videoRecErr) {
-      console.error('[V2] Failed to save video recording:', videoRecErr);
-      // Non-fatal — proceed without video_recording entry
-    }
-
-    // 10. Generate landing page URL — use the dynamic Next.js landing page
-    // instead of a static HTML file. This gives us the template system,
-    // calendly fix, scrolling website screenshot, and editable sections.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://os-outreach-suit.vercel.app';
+    // 8. Generate landing page URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const landingPageUrl = videoRec?.id
       ? `${appUrl}/landing/${videoRec.id}?leadId=${leadId}`
       : `${appUrl}/landing/placeholder?leadId=${leadId}`;
 
-    // 11. Save to leads table
+    // 9. Update lead
     await supabase
       .from('leads')
       .update({
@@ -269,11 +170,8 @@ print("FETCHED")
       })
       .eq('id', leadId);
 
-    // Cleanup
-    await unlink(videoPath).catch(() => {});
-
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[V2] Generated for lead ${leadId} in ${elapsed}s`);
+    console.log(`[generate] Done for lead ${leadId} in ${elapsed}s`);
 
     return NextResponse.json({
       success: true,
@@ -284,12 +182,12 @@ print("FETCHED")
       duration: parseFloat(elapsed),
     });
   } catch (err: any) {
-    console.error('[V2] Generate error:', err?.message || err);
+    console.error('[generate] Error:', err?.message || err);
     try {
       if (leadId) {
         await getSupabase().from('leads').update({ v2_status: 'failed' }).eq('id', leadId);
       }
     } catch {}
-    return NextResponse.json({ error: err?.message || 'Generate failed', leadId }, { status: 500 });
+    return NextResponse.json({ error: err?.message || 'Generate failed' }, { status: 500 });
   }
 }

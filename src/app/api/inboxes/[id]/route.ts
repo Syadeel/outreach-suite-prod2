@@ -1,23 +1,47 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyRequestSecurity } from '@/lib/auth'
 
 export const maxDuration = 300
 
+// Whitelist of fields that can be updated
+const ALLOWED_UPDATE_FIELDS = [
+  'email', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass',
+  'provider', 'status', 'daily_limit', 'sent_today'
+];
+
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // CSRF protection
+  if (!verifyRequestSecurity(request)) {
+    return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+  }
+
   try {
     const body = await request.json()
     
+    // Only allow whitelisted fields
+    const safeBody: Record<string, any> = {};
+    for (const key of Object.keys(body)) {
+      if (ALLOWED_UPDATE_FIELDS.includes(key)) {
+        safeBody[key] = body[key];
+      }
+    }
+    
+    if (Object.keys(safeBody).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+    
     const { data, error } = await supabaseAdmin
       .from('inboxes')
-      .update(body)
+      .update(safeBody)
       .eq('id', params.id)
       .select()
     
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Update failed' }, { status: 500 })
     }
     
     if (!data || data.length === 0) {
@@ -26,14 +50,20 @@ export async function PATCH(
     
     return NextResponse.json(data[0])
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('[Inboxes] PATCH error:', err.message);
+    return NextResponse.json({ error: 'Update failed' }, { status: 500 })
   }
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // CSRF protection
+  if (!verifyRequestSecurity(request)) {
+    return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+  }
+
   try {
     const { error } = await supabaseAdmin
       .from('inboxes')
@@ -41,11 +71,12 @@ export async function DELETE(
       .eq('id', params.id)
     
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
     }
     
     return NextResponse.json({ message: 'Inbox deleted successfully' })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('[Inboxes] DELETE error:', err.message);
+    return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
   }
 }

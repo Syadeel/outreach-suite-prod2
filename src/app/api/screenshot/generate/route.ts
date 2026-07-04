@@ -32,6 +32,31 @@ export async function POST(req: NextRequest) {
     // Normalize URL
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
 
+    // SSRF protection: validate URL and block private IPs
+    try {
+      const parsed = new URL(normalizedUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return NextResponse.json({ error: 'Only HTTP/HTTPS URLs allowed' }, { status: 400 });
+      }
+      const hostname = parsed.hostname;
+      // Block private/internal IPs
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '::1' ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.') ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('169.254.') ||
+        hostname.endsWith('.local') ||
+        hostname.endsWith('.internal')
+      ) {
+        return NextResponse.json({ error: 'Internal/private URLs are not allowed' }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
+    }
+
     console.log(`[Screenshot] Generating screenshot for: ${normalizedUrl}`);
 
     // Try microlink API first
@@ -122,6 +147,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error('[Screenshot] Error:', err.message || err);
-    return NextResponse.json({ error: err.message || 'Screenshot generation failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Screenshot generation failed' }, { status: 500 });
   }
 }

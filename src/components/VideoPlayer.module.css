@@ -1,0 +1,7 @@
+/* VideoPlayer — Landing Page Video */
+.container { position: relative; overflow: hidden; }
+.loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 16rem; background: var(--bg-input, #f9fafb); border-radius: var(--radius-lg); }
+.loadingSpinner { width: 2.5rem; height: 2.5rem; border: 2px solid var(--border-color, #e5e7eb); border-top-color: var(--success, #10b981); border-radius: 9999px; animation: spin 0.7s linear infinite; margin-bottom: 0.75rem; }
+.loadingText { font-size: 0.875rem; color: var(--text-muted, #6b7280); }
+.video { width: 100%; height: auto; border-radius: var(--radius-lg); display: block; }
+.errorBanner { position: absolute; bottom: 0; left: 0; right: 0; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border-top: 1px solid rgba(245,158,11,0.3); font-size: 0.75rem; color: var(--warning, #f59e0b); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }

@@ -119,3 +119,46 @@
 .linkBtn:hover { background: var(--primary-light); }
 .gifReady { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--success); font-weight: 600; }
 .iconXs { width: 0.75rem; height: 0.75rem; }
+
+/* Loading State */
+.loadingState { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 4rem 2rem; color: var(--text-muted); font-size: 0.8125rem; }
+.loadingSpinner { width: 1.5rem; height: 1.5rem; color: var(--primary); animation: spin 1s linear infinite; }
+
+/* Empty States */
+.emptyCard { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 3rem; text-align: center; box-shadow: var(--shadow-sm); }
+.emptyIcon { width: 2.5rem; height: 2.5rem; color: var(--text-muted); margin: 0 auto 0.75rem; }
+.emptyTitle { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
+.emptyText { font-size: 0.8125rem; color: var(--text-secondary); }
+
+/* View Toggle */
+.viewToggle { display: flex; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.1875rem; }
+.toggleBtn { display: inline-flex; align-items: center; justify-content: center; padding: 0.375rem 0.5rem; color: var(--text-secondary); background: transparent; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition); }
+.toggleBtn:hover { color: var(--text-primary); }
+.toggleActive { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+
+/* Card Grid View */
+.cardGrid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+@media (min-width: 768px) { .cardGrid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .cardGrid { grid-template-columns: repeat(3, 1fr); } }
+
+/* Lead Card */
+.leadCard { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; transition: all var(--transition); box-shadow: var(--shadow-sm); }
+.leadCard:hover { box-shadow: var(--shadow-md); }
+.leadCardHeader { display: flex; justify-content: space-between; align-items: flex-start; }
+.leadCardInfo { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.leadCardName { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
+.leadCardEmail { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leadCardBody { display: flex; flex-direction: column; gap: 0.375rem; }
+.leadCardRow { display: flex; justify-content: space-between; align-items: center; }
+.leadCardLabel { font-size: 0.75rem; color: var(--text-muted); }
+.leadCardValue { font-size: 0.75rem; font-weight: 600; color: var(--text-primary); }
+.leadCardFooter { display: flex; gap: 0.5rem; align-items: center; padding-top: 0.5rem; border-top: 1px solid var(--border-light); }
+
+/* Badge Variants */
+.badgeSky { background: rgba(14,165,233,0.08); color: var(--info); border-color: rgba(14,165,233,0.25); }
+.badgeEmerald { background: rgba(16,185,129,0.08); color: var(--success); border-color: rgba(16,185,129,0.25); }
+.badgeAmber { background: rgba(245,158,11,0.08); color: var(--warning); border-color: rgba(245,158,11,0.25); }
+.badgeRose { background: rgba(239,68,68,0.08); color: var(--danger); border-color: rgba(239,68,68,0.25); }
+.badgeSlate { background: var(--bg-input); color: var(--text-muted); border-color: var(--border-color); }
+.iconLg { width: 1.5rem; height: 1.5rem; }
+.tbody { }

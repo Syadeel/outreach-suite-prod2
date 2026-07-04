@@ -39,16 +39,30 @@ export default function CalendlyWidget({ embedCode, ctaUrl }: CalendlyWidgetProp
       if (urlMatch && urlMatch[1]) {
         // Found a Calendly URL, use iframe
         const calendlyUrl = urlMatch[1].replace(/&amp;/g, '&')
-        const iframe = document.createElement('iframe')
-        iframe.src = `${calendlyUrl}?embed_domain=${window.location.hostname}`
-        iframe.style.width = '100%'
-        iframe.style.minHeight = '630px'
-        iframe.style.border = 'none'
-        iframe.style.borderRadius = '12px'
-        container.appendChild(iframe)
+        // Validate Calendly URL
+        if (calendlyUrl.startsWith('https://calendly.com/')) {
+          const iframe = document.createElement('iframe')
+          iframe.src = `${calendlyUrl}?embed_domain=${window.location.hostname}`
+          iframe.style.width = '100%'
+          iframe.style.minHeight = '630px'
+          iframe.style.border = 'none'
+          iframe.style.borderRadius = '12px'
+          container.appendChild(iframe)
+        }
       } else {
-        // Try to load the embed code directly
-        container.innerHTML = embedCode
+        // Sanitize: only allow iframes from calendly.com
+        const sanitized = embedCode.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = sanitized;
+        // Only keep iframes from calendly.com
+        const iframes = tempDiv.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+          const src = iframe.getAttribute('src') || '';
+          if (!src.includes('calendly.com')) {
+            iframe.remove();
+          }
+        });
+        container.appendChild(tempDiv);
         
         // Load Calendly script if not already loaded
         if (!document.querySelector('script[src*="calendly.com/assets/external/widget.js"]')) {

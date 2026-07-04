@@ -28,7 +28,15 @@ export async function GET(req: NextRequest) {
 
   // Redirect to target URL or fallback
   if (targetUrl) {
-    return NextResponse.redirect(targetUrl);
+    // SSRF/open redirect protection: only allow external HTTPS URLs
+    try {
+      const parsed = new URL(targetUrl);
+      if (parsed.protocol === 'https:' && !parsed.hostname.includes('localhost')) {
+        return NextResponse.redirect(targetUrl);
+      }
+    } catch {
+      // Invalid URL, fall through to fallback
+    }
   }
 
   // Default fallback URL if missing

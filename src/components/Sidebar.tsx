@@ -74,7 +74,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         {/* Brand Header */}
         <div className={styles.brand}>
           <img
-            src="https://wxxjiehgcjrmkbatkvsu.supabase.co/storage/v1/object/public/images/images/images_1782500392085.png"
+            src="/ca-logo.svg"
             alt="Capital Acquisition"
             width={32}
             height={32}

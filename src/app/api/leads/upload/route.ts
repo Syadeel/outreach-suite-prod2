@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { parse } from 'csv-parse/sync';
 import path from 'path';
+import { verifyRequestSecurity } from '@/lib/auth';
 
 /**
  * POST /api/leads/upload
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
     // Only allow POST
     if (req.method !== 'POST') {
       return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+    }
+
+    // CSRF protection
+    if (!verifyRequestSecurity(req)) {
+      return NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 });
     }
 
     const { csvBase64 } = await req.json();

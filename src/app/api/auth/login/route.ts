@@ -1,17 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { createHash } from 'crypto';
+import { hashPassword, verifyPassword, isBcryptHash, setSessionCookie } from '@/lib/auth';
+
+// Simple in-memory rate limiter
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (!record || now > record.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 60000 });
+    return true;
+  }
+  if (record.count >= 5) return false;
+  record.count++;
+  return true;
+}
+
+// Default valid usernames
+const DEFAULT_USERNAMES = ['admin', 'adeel'];
+
+async function getValidUsernames(): Promise<string[]> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('settings')
+      .select('value')
+      .eq('key', 'dashboard_username')
+      .single();
+    
+    const customUsername = data?.value?.toLowerCase().trim();
+    if (customUsername) {
+      return [customUsername, ...DEFAULT_USERNAMES];
+    }
+  } catch {}
+  return DEFAULT_USERNAMES;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { password } = await req.json();
+    const { username, password } = await req.json();
 
-    if (!password) {
-      return NextResponse.json({ success: false, error: 'Password is required' }, { status: 400 });
+    if (!username || !password) {
+      return NextResponse.json({ success: false, error: 'Username and password are required' }, { status: 400 });
     }
 
-    const envPassword = process.env.DASHBOARD_PASSWORD || 'capital123';
-    let isValid = password === envPassword;
+    // Validate username
+    const validUsernames = await getValidUsernames();
+    if (!validUsernames.includes(username.toLowerCase().trim())) {
+      return NextResponse.json({ success: false, error: 'Invalid username or password' }, { status: 401 });
+    }
+
+    // Rate limiting
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json({ success: false, error: 'Too many attempts. Try again in 1 minute.' }, { status: 429 });
+    }
+
+    // Check env password first
+    const envPassword = process.env.DASHBOARD_PASSWORD || process.env.OS_PASSWORD;
+    let isValid = envPassword ? password === envPassword : false;
 
     // If env password doesn't match, check DB stored hash
     if (!isValid) {
@@ -22,25 +69,33 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (data) {
-        const inputHash = createHash('sha256').update(password).digest('hex');
-        isValid = data.value === inputHash;
+        if (isBcryptHash(data.value)) {
+          isValid = await verifyPassword(password, data.value);
+        } else {
+          const { createHash } = await import('crypto');
+          const inputHash = createHash('sha256').update(password).digest('hex');
+          if (data.value === inputHash) {
+            isValid = true;
+            const newHash = await hashPassword(password);
+            await supabaseAdmin
+              .from('settings')
+              .update({ value: newHash })
+              .eq('key', 'dashboard_password_hash');
+          }
+        }
       }
     }
 
     if (isValid) {
+      const { name, value, options } = await setSessionCookie('os_session', 'admin');
       const response = NextResponse.json({ success: true });
-      response.cookies.set('os_session', 'authenticated', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 60 * 60 * 24 * 30, // 30 days
-        path: '/',
-      });
+      response.cookies.set(name, value, options);
       return response;
     }
 
-    return NextResponse.json({ success: false, error: 'Incorrect password' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Invalid username or password' }, { status: 401 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[Auth] Login error:', err.message);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Inbox, Plus, RefreshCw, Mail, CheckCircle, AlertCircle, Trash2, Settings, X } from 'lucide-react'
+import { Inbox, Plus, Loader, RefreshCw, Mail, CheckCircle, AlertCircle, Trash2, Settings, X, LayoutGrid, List } from 'lucide-react'
 import s from './InboxTab.module.css'
+import { useToast } from '../components/Toast'
 
 export default function InboxTab() {
+  const { toast } = useToast()
   const [inboxes, setInboxes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -14,8 +16,13 @@ export default function InboxTab() {
   const [newSmtpPort, setNewSmtpPort] = useState('587')
   const [newSmtpUser, setNewSmtpUser] = useState('')
   const [newSmtpPass, setNewSmtpPass] = useState('')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') { const v = localStorage.getItem('inbox-view-mode'); if (v === 'grid' || v === 'list') return v }
+    return 'grid'
+  })
 
   useEffect(() => { fetchInboxes() }, [])
+  useEffect(() => { localStorage.setItem('inbox-view-mode', viewMode) }, [viewMode])
 
   const fetchInboxes = async () => {
     try {
@@ -29,7 +36,7 @@ export default function InboxTab() {
     e.preventDefault()
     try {
       const { error } = await supabase.from('inboxes').insert({ email: newEmail, smtp_host: newSmtpHost, smtp_port: parseInt(newSmtpPort), smtp_user: newSmtpUser, smtp_pass: newSmtpPass, status: 'active', daily_limit: 50, sent_today: 0 })
-      if (error) { alert(error.message) } else { setShowAddModal(false); setNewEmail(''); setNewSmtpHost(''); setNewSmtpPort('587'); setNewSmtpUser(''); setNewSmtpPass(''); fetchInboxes() }
+      if (error) { toast.error(error.message) } else { setShowAddModal(false); setNewEmail(''); setNewSmtpHost(''); setNewSmtpPort('587'); setNewSmtpUser(''); setNewSmtpPass(''); fetchInboxes() }
     } catch (err) { console.error(err) }
   }
 
@@ -51,11 +58,20 @@ export default function InboxTab() {
           <h2 className={s.title}><Inbox className={s.titleIcon} /> Inbox Management</h2>
           <p className={s.subtitle}>Connect and manage your email sending inboxes.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className={s.addBtn}><Plus className={s.iconSm} /> Add Inbox</button>
+        <div className={s.headerActions}>
+          <div className={s.viewToggle}>
+            <button className={`${s.toggleBtn} ${viewMode === 'grid' ? s.toggleActive : ''}`} onClick={() => setViewMode('grid')} title="Grid view"><LayoutGrid className={s.iconSm} /></button>
+            <button className={`${s.toggleBtn} ${viewMode === 'list' ? s.toggleActive : ''}`} onClick={() => setViewMode('list')} title="List view"><List className={s.iconSm} /></button>
+          </div>
+          <button onClick={() => setShowAddModal(true)} className={s.addBtn}><Plus className={s.iconSm} /> Add Inbox</button>
+        </div>
       </div>
 
       {loading ? (
-        <div className={s.empty}>Loading inboxes...</div>
+        <div className={s.loadingState}>
+          <Loader className={s.loadingSpinner} />
+          <span>Loading inboxes...</span>
+        </div>
       ) : inboxes.length === 0 ? (
         <div className={s.emptyCard}>
           <Mail className={s.emptyIcon} />
@@ -63,7 +79,7 @@ export default function InboxTab() {
           <p className={s.emptyText}>Connect your first email inbox to start sending outreach campaigns.</p>
           <button onClick={() => setShowAddModal(true)} className={s.emptyBtn}>Connect Inbox</button>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className={s.grid}>
           {inboxes.map((inbox) => (
             <div key={inbox.id} className={s.card}>
@@ -90,6 +106,35 @@ export default function InboxTab() {
                   <div className={`${s.statusDot} ${inbox.oauth_access_token ? s.statusDotEmerald : s.statusDotRose}`} />
                   <span>Gmail OAuth {inbox.oauth_access_token ? 'Connected' : 'Not connected'}</span>
                 </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={s.list}>
+          {inboxes.map((inbox) => (
+            <div key={inbox.id} className={s.listRow}>
+              <div className={s.listLeft}>
+                <h3 className={s.cardEmail}>{inbox.email}</h3>
+                <span className={`${s.badge} ${inbox.status === 'active' ? s.badgeEmerald : inbox.status === 'warmup' ? s.badgeAmber : s.badgeRose}`}>{inbox.status || 'active'}</span>
+              </div>
+              <div className={s.listMiddle}>
+                <span className={s.statValue}>{inbox.sent_today || 0} / {inbox.daily_limit || 50}</span>
+                <div className={s.progressBar}><div className={s.progressFill} style={{ width: `${inbox.daily_limit ? Math.min(100, (inbox.sent_today / inbox.daily_limit) * 100) : 0}%` }} /></div>
+              </div>
+              <div className={s.listRight}>
+                <div className={s.footerItem}>
+                  <div className={`${s.statusDot} ${inbox.smtp_host ? s.statusDotEmerald : s.statusDotRose}`} />
+                  <span>SMTP</span>
+                </div>
+                <div className={s.footerItem}>
+                  <div className={`${s.statusDot} ${inbox.oauth_access_token ? s.statusDotEmerald : s.statusDotRose}`} />
+                  <span>OAuth</span>
+                </div>
+              </div>
+              <div className={s.listActions}>
+                <button onClick={() => handleToggleStatus(inbox.id, inbox.status)} className={s.actionBtn}>{inbox.status === 'active' ? 'Pause' : 'Activate'}</button>
+                <button onClick={() => handleDeleteInbox(inbox.id)} className={s.deleteBtn}><Trash2 className={s.iconXs} /></button>
               </div>
             </div>
           ))}

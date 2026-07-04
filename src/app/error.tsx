@@ -35,9 +35,11 @@ export default function Error({
 
         <div className="bg-slate-950/90 border border-slate-800/80 rounded-xl p-4 text-left font-mono text-xs text-rose-300 max-h-60 overflow-y-auto whitespace-pre-wrap select-all">
           <span className="font-semibold text-rose-400 block mb-1">
-            Error: {error.message || 'Unknown runtime exception'}
+            Error: {error.digest || 'Something went wrong'}
           </span>
-          {error.stack || 'No stack trace available'}
+          <span className="text-slate-500 text-xs">
+            If this persists, contact support.
+          </span>
         </div>
 
         <div className="flex gap-3 justify-center">

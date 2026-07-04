@@ -171,3 +171,28 @@
 .iconXs { width: 0.75rem; height: 0.75rem; }
 .iconSm { width: 1rem; height: 1rem; }
 .iconMd { width: 1.25rem; height: 1.25rem; }
+
+/* Missing classes */
+.headerLeft { display: flex; align-items: center; gap: 0.75rem; }
+.headerIcon { width: 2.5rem; height: 2.5rem; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; background: var(--primary-light); color: var(--primary); flex-shrink: 0; }
+.subtitle { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.25rem; }
+.iconLg { width: 1.5rem; height: 1.5rem; }
+.selectWrapper { position: relative; flex: 1; }
+.selectIcon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 1rem; height: 1rem; color: var(--text-muted); pointer-events: none; }
+.selectIconRight { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); width: 1rem; height: 1rem; color: var(--text-muted); pointer-events: none; }
+.kpiGlow { position: absolute; top: -1px; right: -1px; width: 4rem; height: 4rem; border-radius: 50%; background: radial-gradient(circle, rgba(124,92,252,0.06) 0%, transparent 70%); pointer-events: none; }
+.kpiIconEmerald { background: rgba(16,185,129,0.1); color: var(--success); }
+.kpiIconPurple { background: rgba(139,92,246,0.1); color: var(--purple); }
+.kpiIconSky { background: rgba(14,165,233,0.1); color: var(--info); }
+.kpiStatEmerald { display: flex; align-items: center; gap: 0.25rem; color: var(--success); font-size: 0.75rem; }
+.kpiStatRose { display: flex; align-items: center; gap: 0.25rem; color: var(--danger); font-size: 0.75rem; }
+.kpiStatSky { display: flex; align-items: center; gap: 0.25rem; color: var(--info); font-size: 0.75rem; }
+.statusDotEmerald { background: var(--success); }
+.statusDotSlate { background: var(--slate); }
+.badgeAmber { background: rgba(245,158,11,0.08); color: var(--warning); }
+.badgeEmerald { background: rgba(16,185,129,0.08); color: var(--success); }
+.badgeRose { background: rgba(239,68,68,0.08); color: var(--danger); }
+.textAmber { color: var(--warning); }
+.textEmerald { color: var(--success); }
+.textRose { color: var(--danger); }
+.chartLarge { grid-column: 1 / -1; }

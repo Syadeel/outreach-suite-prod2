@@ -3,6 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
+// Allowed MIME types
+const ALLOWED_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  'video/mp4', 'video/webm', 'video/quicktime',
+  'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4',
+  'application/pdf',
+]);
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +31,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File too large. Maximum 50MB.' }, { status: 400 });
+    }
+
+    // Validate file type
+    if (!ALLOWED_TYPES.has(file.type)) {
+      return NextResponse.json({ error: 'File type not allowed' }, { status: 400 });
+    }
+
     // Ensure bucket exists
     const { data: buckets } = await supabase.storage.listBuckets();
     const bucketExists = buckets?.some(b => b.name === bucket);
@@ -28,8 +48,9 @@ export async function POST(req: NextRequest) {
       await supabase.storage.createBucket(bucket, { public: true });
     }
 
-    // Generate unique filename
-    const ext = file.name.split('.').pop() || 'bin';
+    // Generate unique filename — sanitize extension
+    const rawExt = file.name.split('.').pop() || 'bin';
+    const ext = rawExt.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     const filename = `${bucket}_${Date.now()}.${ext}`;
     const filepath = `${bucket}/${filename}`;
 
@@ -61,6 +82,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('Upload error:', err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }

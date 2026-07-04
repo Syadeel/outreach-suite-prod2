@@ -1,196 +1,144 @@
 /**
- * V2 LatentSync API — Spawns Modal LatentSync inference and waits for result.
+ * V2 LatentSync API — DashScope wan2.2-s2v lip-sync video generation.
  *
  * POST /api/v2/latentsync
  *   { audioUrl: string, videoUrl?: string }
  *
  * Pipeline:
- * 1. Spawn Modal LatentSync on A10G (detached)
- * 2. Poll until complete
- * 3. Fetch result from Modal volume
- * 4. Upload to Cloudinary
+ * 1. Submit async task to DashScope wan2.2-s2v
+ * 2. Poll until complete (15s intervals, max 50 min)
+ * 3. Download result video
+ * 4. Upload to Supabase Storage
  * 5. Return video URL
  */
 
 export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { mkdir, unlink } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-const execFileAsync = promisify(execFile);
+const DEFAULT_AVATAR_IMAGE = 'https://res.cloudinary.com/dacq1vyxp/image/upload/v1781118782/v2_face/video_1781118774.jpg';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
 
-const FACE_VIDEO_URL =
-  process.env.FACE_VIDEO_URL ||
-  'https://res.cloudinary.com/dacq1vyxp/video/upload/v1781118782/v2_face/video_1781118774.mp4';
-const LATENTSYNC_APP = 'latentsync-v16-original';
-const TEMP_DIR = path.join(process.cwd(), 'tmp');
+function sleep(ms: number) {
+  return new Promise(r => setTimeout(r, ms));
+}
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   try {
     const body = await req.json();
-    const { audioUrl, videoUrl: customVideoUrl } = body;
+    const { audioUrl, videoUrl } = body;
 
     if (!audioUrl) {
       return NextResponse.json({ error: 'audioUrl is required' }, { status: 400 });
     }
 
-    const faceVideoUrl = customVideoUrl || FACE_VIDEO_URL;
-
-    // ---- Step 1: Spawn Modal LatentSync ----
-    console.log(`[V2 latentsync] Spawning inference...`);
-    console.log(`  Video: ${faceVideoUrl}`);
-    console.log(`  Audio: ${audioUrl}`);
-
-    const spawnScript = `
-import modal
-f = modal.Function.from_name("${LATENTSYNC_APP}", "run_inference")
-call = f.spawn(
-    video_url="${faceVideoUrl}",
-    audio_url="${audioUrl}",
-    inference_steps=25,
-    guidance_scale=1.5,
-    seed=1247,
-    enable_deepcache=True,
-)
-print(call.object_id)
-`;
-
-    await mkdir(TEMP_DIR, { recursive: true });
-    const spawnResult = await execFileAsync('python', ['-c', spawnScript], {
-      timeout: 60_000,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
-
-    const fcId = spawnResult.stdout?.trim();
-    if (!fcId || !fcId.startsWith('fc-')) {
-      throw new Error(`Invalid function call ID: ${fcId}`);
+    const apiKey = process.env.ALIBABA_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'ALIBABA_API_KEY not configured' }, { status: 500 });
     }
-    console.log(`[V2 latentsync] Spawned: ${fcId}`);
+
+    const imageUrl = videoUrl || DEFAULT_AVATAR_IMAGE;
+    console.log(`[latentsync] Starting: audio=${audioUrl}, image=${imageUrl}`);
+
+    // ---- Step 1: Submit async task ----
+    const submitRes = await fetch(
+      'https://dashscope.aliyuncs.com/api/v1/services/aigc/image2video/video-synthesis',
+      {
+        method: 'POST',
+        headers: {
+          'X-DashScope-Async': 'enable',
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'wan2.2-s2v',
+          input: { image_url: imageUrl, audio_url: audioUrl },
+          parameters: { resolution: '480P' },
+        }),
+      },
+    );
+
+    if (!submitRes.ok) {
+      const errText = await submitRes.text();
+      throw new Error(`DashScope submit failed (${submitRes.status}): ${errText.slice(0, 300)}`);
+    }
+
+    const submitData = await submitRes.json();
+    const taskId = submitData.output?.task_id;
+    if (!taskId) throw new Error('No task_id returned from DashScope');
+
+    console.log(`[latentsync] Task submitted: ${taskId}`);
 
     // ---- Step 2: Poll for completion ----
-    console.log(`[V2 latentsync] Polling for completion...`);
+    let result: any = null;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await sleep(15_000);
 
-    const pollScript = `
-import modal
-fc = modal.FunctionCall.from_id("${fcId}")
-try:
-    result = fc.get(timeout=120)
-    print(result)
-except TimeoutError:
-    print("TIMEOUT")
-except Exception as e:
-    if 'timeout' in str(e).lower():
-        print("TIMEOUT")
-    else:
-        raise
-`;
-
-    let inferenceResult: string | null = null;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const pollResult = await execFileAsync('python', ['-c', pollScript], {
-        timeout: 180_000,
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      const taskRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
       });
-      const output = pollResult.stdout?.trim();
-      if (output && output !== 'TIMEOUT') {
-        inferenceResult = output;
-        break;
+
+      if (!taskRes.ok) {
+        console.warn(`[latentsync] Poll ${attempt + 1} failed, retrying...`);
+        continue;
       }
-      console.log(`  [V2 latentsync] Poll ${attempt + 1}/20 — still running...`);
-      await new Promise(r => setTimeout(r, 30_000));
+
+      const taskData = await taskRes.json();
+      const status = taskData.output?.task_status;
+      console.log(`[latentsync] Poll ${attempt + 1}/200: ${status}`);
+
+      if (status === 'SUCCEEDED') {
+        result = taskData.output;
+        break;
+      } else if (status === 'FAILED') {
+        throw new Error(`Task failed: ${taskData.output?.message || 'Unknown'}`);
+      }
     }
 
-    if (!inferenceResult) {
-      throw new Error(
-        `LatentSync timed out. Check: modal function get ${fcId}`,
-      );
-    }
+    if (!result) throw new Error('Task timed out after 50 minutes');
 
-    console.log(`[V2 latentsync] Inference complete: ${inferenceResult}`);
+    // ---- Step 3: Download result video ----
+    const resultVideoUrl = result.results?.video_url;
+    if (!resultVideoUrl) throw new Error('No video_url in task result');
 
-    // ---- Step 3: Fetch result from volume ----
-    const videoPath = path.join(TEMP_DIR, `latentsync_${Date.now()}.mp4`);
-    const fetchScript = `
-import modal
-f = modal.Function.from_name("${LATENTSYNC_APP}", "_fetch_output")
-out = f.remote("/cache/output/lipsync_v16_final.mp4")
-with open(r"${videoPath.replace(/\\/g, '/')}", "wb") as fh:
-    fh.write(out)
-print("FETCHED")
-`;
+    console.log(`[latentsync] Downloading video...`);
+    const downloadRes = await fetch(resultVideoUrl);
+    if (!downloadRes.ok) throw new Error(`Download failed: ${downloadRes.status}`);
 
-    const fetchResult = await execFileAsync('python', ['-c', fetchScript], {
-      timeout: 300_000,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
+    const videoBuffer = Buffer.from(await downloadRes.arrayBuffer());
+    console.log(`[latentsync] Downloaded: ${(videoBuffer.length / 1e6).toFixed(1)} MB`);
 
-    if (!existsSync(videoPath)) {
-      throw new Error('Failed to fetch LatentSync output from volume');
-    }
+    // ---- Step 4: Upload to Supabase Storage ----
+    const supabase = getSupabase();
+    const fileName = `latentsync/${crypto.randomUUID()}.mp4`;
 
-    const { readFileSync } = require('fs');
-    const videoSize = readFileSync(videoPath).length;
-    console.log(`[V2 latentsync] Fetched: ${(videoSize / 1e6).toFixed(1)} MB`);
+    const { error: uploadError } = await supabase.storage
+      .from('videos')
+      .upload(fileName, videoBuffer, {
+        contentType: 'video/mp4',
+        cacheControl: '3600',
+      });
 
-    // ---- Step 4: Upload to Cloudinary ----
-    const timestamp = Math.round(Date.now() / 1000);
-    const folder = 'v2_videos';
-    const signature = cloudinary.utils.api_sign_request(
-      { timestamp, folder },
-      process.env.CLOUDINARY_API_SECRET || '',
-    );
+    if (uploadError) throw new Error(`Supabase upload failed: ${uploadError.message}`);
 
-    const videoBuffer = require('fs').readFileSync(videoPath);
-    const uploadForm = new FormData();
-    uploadForm.append('file', new Blob([videoBuffer]), 'video.mp4');
-    uploadForm.append('api_key', process.env.CLOUDINARY_API_KEY || '');
-    uploadForm.append('timestamp', String(timestamp));
-    uploadForm.append('signature', signature);
-    uploadForm.append('folder', folder);
-
-    const cloudRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/video/upload`,
-      { method: 'POST', body: uploadForm },
-    );
-
-    if (!cloudRes.ok) {
-      throw new Error(`Cloudinary upload failed: ${await cloudRes.text()}`);
-    }
-
-    const cloudData = await cloudRes.json();
-    const videoUrl = cloudData.secure_url;
-    const duration = cloudData.duration || 0;
-
-    // Cleanup
-    await unlink(videoPath).catch(() => {});
+    const { data: urlData } = supabase.storage.from('videos').getPublicUrl(fileName);
+    const publicUrl = urlData?.publicUrl;
+    if (!publicUrl) throw new Error('Failed to get public URL');
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[V2 latentsync] Done in ${elapsed}s: ${videoUrl}`);
+    console.log(`[latentsync] Done in ${elapsed}s: ${publicUrl}`);
 
-    return NextResponse.json({
-      videoUrl,
-      duration: parseFloat(String(duration)),
-      elapsed: parseFloat(elapsed),
-      functionCallId: fcId,
-    });
+    return NextResponse.json({ videoUrl: publicUrl, duration: result.duration || 0 });
   } catch (err: any) {
-    console.error('[V2 latentsync] Error:', err.message || err);
-    return NextResponse.json(
-      { error: err.message || 'LatentSync failed' },
-      { status: 500 },
-    );
+    console.error('[latentsync] Error:', err.message || err);
+    return NextResponse.json({ error: err.message || 'LatentSync failed' }, { status: 500 });
   }
 }
